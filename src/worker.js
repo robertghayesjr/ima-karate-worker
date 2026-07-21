@@ -172,6 +172,18 @@ function buildStyleTag(IMG_BASE) {
   .nav-cart,
   .cart-wrapper,
   [class*="commercecart"] { display: none !important; }
+
+  /* Hide the "Made in Webflow" badge */
+  .w-webflow-badge,
+  a[href*="webflow.com?utm_campaign=brandjs"],
+  a[href*="webflow.com/?utm_campaign=brandjs"] { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
+
+  /* Kill the Webflow page-load transition overlays that fire on every internal link click */
+  .transition-wrap,
+  .vertical-transition-wrap,
+  .page-transition-row,
+  .page-transition-column,
+  .page-transition-logo { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
   .section.intro-section img.marketing-image-mobile,
   .section.second-section img.marketing-image-mobile { display: none !important; }
   .ima-hide, .ima-hide * { display: none !important; visibility: hidden !important; }
@@ -281,6 +293,102 @@ function buildScriptTag(IMG_BASE) {
     });
   }
 
+  function removeWebflowBadge(){
+    // Webflow re-inserts the badge after its own script runs, so we remove it repeatedly.
+    $$('.w-webflow-badge, a[href*="webflow.com?utm_campaign=brandjs"], a[href*="webflow.com/?utm_campaign=brandjs"]').forEach(function(b){
+      try { b.remove(); } catch(_) { b.style.display = 'none'; }
+    });
+  }
+
+  function removePageTransition(){
+    // Removing the overlay DOM entirely prevents Webflow IX2 from animating it on link clicks.
+    $$('.transition-wrap, .vertical-transition-wrap').forEach(function(el){
+      try { el.remove(); } catch(_) { el.style.display = 'none'; }
+    });
+    // Also strip data-w-id on any leftover transition helpers so IX2 won't bind them.
+    $$('.page-transition-row, .page-transition-column, .page-transition-logo').forEach(function(el){
+      try { el.remove(); } catch(_) {}
+    });
+  }
+
+  function fixNavLinks(){
+    // Map broken template hrefs to real destinations.
+    // Programs / Student Info / News nav items were all href="#" — point them at the sections we built on the home page.
+    $$('.nav-link-main').forEach(function(a){
+      var label = (a.textContent||'').trim().toUpperCase();
+      if (label === 'PROGRAMS')            { a.setAttribute('href', '/#programs'); }
+      else if (label === 'STUDENT INFORMATION') { a.setAttribute('href', '/#schedule'); }
+      else if (label === 'NEWS & EVENTS' || label === 'NEWS AND EVENTS') { a.setAttribute('href', '/#news'); }
+      else if (label === 'JOIN IMA')       { a.setAttribute('href', '/sign-up'); }
+      else if (label === 'LOGIN')          { a.setAttribute('href', '/login'); }
+    });
+
+    // "View all" JOIN IMA button in the dropdown
+    $$('.view-all-block').forEach(function(a){
+      if ((a.textContent||'').trim().toUpperCase().indexOf('JOIN IMA') > -1) a.setAttribute('href', '/sign-up');
+    });
+
+    // Logo — template pointed at /home-slider-layout, we want home.
+    $$('.logo-container').forEach(function(a){ a.setAttribute('href', '/'); });
+
+    // Fill in social links (leave anything already set correctly).
+    var socials = $$('.social-link');
+    var socialTargets = [
+      'https://www.facebook.com/imakarate',
+      'https://www.instagram.com/imakarate',
+      'https://www.youtube.com/@imakarate'
+    ];
+    socials.forEach(function(a, i){
+      var href = a.getAttribute('href') || '';
+      if (!href || href === '#' || href === 'https://facebook.com') {
+        if (socialTargets[i]) a.setAttribute('href', socialTargets[i]);
+      }
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener');
+    });
+
+    // Any dropdown "template menu" thumbnails still pointing at "/" are dead — send them to programs.
+    $$('.classes-image').forEach(function(a){
+      var href = a.getAttribute('href') || '';
+      if (href === '/' || href === '#') a.setAttribute('href', '/#programs');
+    });
+  }
+
+  function neutralizeInternalTransitions(){
+    // Prevent Webflow's page-transition JS from firing when the user clicks an anchor
+    // that is either on-page (#foo) or the current page. We handle these navigations
+    // manually so no transition animation runs.
+    document.addEventListener('click', function(ev){
+      var a = ev.target.closest && ev.target.closest('a');
+      if (!a) return;
+      var href = a.getAttribute('href');
+      if (!href) return;
+      // On-page hash links: scroll smoothly, no navigation.
+      if (href.charAt(0) === '#') {
+        var id = href.slice(1);
+        if (id) {
+          var target = document.getElementById(id);
+          if (target) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+        return;
+      }
+      // "/#foo" while already on "/" — treat as in-page scroll, no reload/transition.
+      if (href.indexOf('/#') === 0 && (location.pathname === '/' || location.pathname === '')) {
+        var id2 = href.slice(2);
+        var target2 = id2 ? document.getElementById(id2) : null;
+        if (target2) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          target2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    }, true); // capture: run before Webflow's own handler
+  }
+
   function programCard(img, title, age, desc){
     return '<div class="ima-program-card"><div class="ima-program-imgwrap"><img src="'+img+'" alt="'+title+'" loading="lazy"></div><div class="ima-program-body"><h3>'+title+'</h3><div class="ima-program-age">'+age+'</div><p>'+desc+'</p></div></div>';
   }
@@ -295,6 +403,9 @@ function buildScriptTag(IMG_BASE) {
 
   function run(){
     hideCartAndTemplateWidgets();
+    removeWebflowBadge();
+    removePageTransition();
+    fixNavLinks();
 
     // Hero
     var hero = $('.section.hero-slide-one');
@@ -461,6 +572,18 @@ function buildScriptTag(IMG_BASE) {
   else run();
   setTimeout(run, 400);
   setTimeout(run, 1200);
+
+  // Register the click interceptor once — not inside run(), which is re-called.
+  neutralizeInternalTransitions();
+
+  // Keep the badge / transition overlays gone if Webflow re-inserts them later.
+  try {
+    var mo = new MutationObserver(function(){
+      removeWebflowBadge();
+      removePageTransition();
+    });
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+  } catch(_) {}
 })();
 </script>`;
 }
