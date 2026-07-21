@@ -7,17 +7,17 @@ compatibility_date = "2025-04-01"
 # or in the Cloudflare dashboard). Only needed if you want to hot-patch JS bundles
 # stored in the SCRIPTS KV namespace without a redeploy.
 [vars]
-ORIGIN = "https://temp-domain-2.webflow.io"    # Update to the actual Webflow origin URL
+ORIGIN = "https://ima-670b18.webflow.io"
 IMG_BASE = "https://cdn.jsdelivr.net/gh/robh-autods/ima-karate-assets@main/"
 
 # Custom domain routing is configured in the Cloudflare dashboard:
 #   Workers & Pages → ima-karate-worker → Settings → Domains & Routes
-#   → Add Route: temp-domain-2.com/*  (Zone must be in the same Cloudflare account)
+#   → Add Custom Domain: ima.rob-hayes.com (zone rob-hayes.com must be on Cloudflare)
 #
 # Alternatively you can declare it here once the zone is on Cloudflare:
 # [[routes]]
-# pattern = "temp-domain-2.com/*"
-# zone_name = "temp-domain-2.com"
+# pattern = "ima.rob-hayes.com/*"
+# zone_name = "rob-hayes.com"
 
 # Optional KV namespace for hot-patching bundled scripts.
 # Create with: wrangler kv:namespace create SCRIPTS

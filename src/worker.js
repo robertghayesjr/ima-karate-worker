@@ -56,7 +56,7 @@ export default {
 //  PROXY + HTMLRewriter
 // ═════════════════════════════════════════════════════════════════════════════
 async function proxyAndRewrite(request, env) {
-  const origin = env.ORIGIN || 'https://temp-domain-2.webflow.io';
+  const origin = env.ORIGIN || 'https://ima-670b18.webflow.io';
   const incoming = new URL(request.url);
   const upstreamUrl = origin.replace(/\/$/, '') + incoming.pathname + incoming.search;
 

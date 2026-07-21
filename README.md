@@ -1,6 +1,6 @@
 # ima-karate-worker
 
-Cloudflare Worker that proxies the IMA Karate Webflow site (`temp-domain-2.com`) and injects updated content on the fly. Content changes deploy automatically on `git push` to `main` via Cloudflare Workers Builds — no Webflow custom code required.
+Cloudflare Worker that proxies the IMA Karate Webflow site and serves it at `ima.rob-hayes.com`, injecting updated content on the fly. Content changes deploy automatically on `git push` to `main` via Cloudflare Workers Builds — no Webflow custom code required.
 
 Mirrors the `file-upload-worker` / Clientele Media pattern:
 
@@ -23,7 +23,7 @@ Edit `wrangler.toml`:
 
 ```toml
 [vars]
-ORIGIN = "https://temp-domain-2.webflow.io"   # replace with the actual Webflow origin
+ORIGIN = "https://ima-670b18.webflow.io"
 IMG_BASE = "https://cdn.jsdelivr.net/gh/robh-autods/ima-karate-assets@main/"
 ```
 
@@ -41,9 +41,9 @@ That gives you `https://ima-karate-worker.<your-subdomain>.workers.dev`. Verify 
 
 In the Cloudflare dashboard:
 
-1. Add `temp-domain-2.com` as a zone (change DNS to Cloudflare nameservers)
-2. Workers & Pages → `ima-karate-worker` → Settings → **Domains & Routes** → **Add Custom Domain** → `temp-domain-2.com` (and optionally `www.temp-domain-2.com`)
-3. Cloudflare issues an SSL cert automatically
+1. Make sure `rob-hayes.com` is already on Cloudflare (it is — same zone as the Rob Hayes app)
+2. Workers & Pages → `ima-karate-worker` → Settings → **Domains & Routes** → **Add Custom Domain** → `ima.rob-hayes.com`
+3. Cloudflare adds the DNS record and issues an SSL cert automatically
 
 ### 5. Connect GitHub → Workers Builds (auto-deploy on push)
 
