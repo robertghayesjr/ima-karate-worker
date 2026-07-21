@@ -39,6 +39,17 @@ export default {
       return json({ ok: true, worker: 'ima-karate-worker', v: 1, origin: env.ORIGIN });
     }
 
+    // ── Worker-served pages (don't exist on the Webflow origin) ─────────────
+    if (url.pathname === '/thank-you' || url.pathname === '/thank-you/') {
+      return new Response(buildThankYouPage(), {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'public, max-age=300',
+          'x-ima-worker': 'v1',
+        },
+      });
+    }
+
     // ── Hot-patched JS bundles via KV (optional; mirrors Clientele pattern) ─
     if (url.pathname.startsWith('/script/') && (request.method === 'GET' || request.method === 'HEAD')) {
       return handleScriptHost(request, env);
@@ -142,6 +153,114 @@ function json(obj, status = 200) {
     status,
     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   });
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  Worker-served pages
+// ═════════════════════════════════════════════════════════════════════════════
+function buildThankYouPage() {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Thank You — Demo Karate Camp | IMA Karate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#0a0a0a;color:#eee;font-family:Inter,system-ui,sans-serif;min-height:100%;-webkit-font-smoothing:antialiased}
+  a{color:#d4a24a;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .topbar{background:#c8102e;color:#fff;text-align:center;padding:10px 16px;font-size:12px;letter-spacing:1px;font-weight:600}
+  .topbar a{color:#fff}
+  .nav{padding:20px 32px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.06)}
+  .logo{color:#fff;font-family:Oswald,sans-serif;font-weight:700;letter-spacing:2px;text-transform:uppercase;font-size:18px}
+  .logo span{color:#c8102e}
+  .nav .home-link{color:#ccc;font-size:13px;letter-spacing:1px;text-transform:uppercase}
+  .wrap{max-width:820px;margin:0 auto;padding:80px 24px 60px;text-align:center}
+  .eyebrow{display:inline-block;color:#d4a24a;font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:16px}
+  h1{font-family:Oswald,sans-serif;font-size:44px;line-height:1.15;color:#fff;letter-spacing:1px;margin-bottom:20px}
+  h1 .accent{color:#c8102e}
+  .lead{color:#cfcfcf;font-size:19px;line-height:1.55;margin-bottom:40px;max-width:640px;margin-left:auto;margin-right:auto}
+  .steps{text-align:left;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:32px 28px;margin:0 auto 40px;max-width:640px}
+  .steps h2{font-family:Oswald,sans-serif;font-size:16px;letter-spacing:2px;text-transform:uppercase;color:#d4a24a;margin-bottom:20px}
+  .step{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+  .step:last-child{border-bottom:0}
+  .step-num{flex:0 0 32px;height:32px;border-radius:50%;background:#c8102e;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .step-body strong{display:block;color:#fff;font-size:15px;margin-bottom:4px}
+  .step-body p{color:#cfcfcf;font-size:14.5px;line-height:1.5}
+  .cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+  .btn{display:inline-block;padding:14px 26px;font-family:Oswald,sans-serif;font-size:14px;letter-spacing:2px;text-transform:uppercase;font-weight:600;border-radius:2px;transition:transform .15s ease,box-shadow .15s ease}
+  .btn:hover{transform:translateY(-1px);text-decoration:none}
+  .btn-primary{background:#c8102e;color:#fff}
+  .btn-primary:hover{background:#e5142f;box-shadow:0 8px 20px rgba(200,16,46,.35)}
+  .btn-outline{border:2px solid #fff;color:#fff}
+  .btn-outline:hover{background:#fff;color:#0a0a0a}
+  .contact{margin-top:32px;color:#aaa;font-size:14px}
+  .contact a{color:#d4a24a;font-weight:600}
+  .footer{text-align:center;padding:40px 20px;color:#666;font-size:12.5px;border-top:1px solid rgba(255,255,255,.06);margin-top:40px}
+  @media (max-width:600px){
+    h1{font-size:32px}
+    .lead{font-size:16.5px}
+    .steps{padding:24px 20px}
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">+1 (303) 665-0339 &nbsp;|&nbsp; 1340 Main St., Louisville, CO 80027</div>
+  <div class="nav">
+    <a href="/" class="logo">IMA <span>Karate</span></a>
+    <a href="/" class="home-link">← Back to Home</a>
+  </div>
+
+  <main class="wrap">
+    <span class="eyebrow">Demo Karate Camp</span>
+    <h1>You're almost <span class="accent">in.</span></h1>
+    <p class="lead">
+      Thanks for signing up for the Demo Karate Camp! We just emailed you a DocuSign waiver — please complete it so we can confirm your spot.
+    </p>
+
+    <div class="steps">
+      <h2>Next Steps</h2>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>Check your inbox</strong>
+          <p>Look for an email from DocuSign with the subject line about your Demo Karate Camp waiver. If you don't see it in the next few minutes, check your spam or promotions folder.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>Complete &amp; sign the DocuSign form</strong>
+          <p>Fill out the participant details and sign — it only takes a couple of minutes. Your spot isn't locked in until the form is signed.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>We'll be in touch</strong>
+          <p>Once your waiver is received, our team will confirm your camp date, what to bring, and everything else you need to know before your first class.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="cta-row">
+      <a href="/" class="btn btn-outline">Back to Home</a>
+      <a href="tel:3036650339" class="btn btn-primary">Call (303) 665-0339</a>
+    </div>
+
+    <div class="contact">
+      Questions? Email <a href="mailto:madani@imakarate.com">madani@imakarate.com</a> or call <a href="tel:3036650339">(303) 665-0339</a>.
+    </div>
+  </main>
+
+  <div class="footer">© 1990 – 2026 IMA Karate · Louisville Honbu Dojo</div>
+</body>
+</html>`;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
