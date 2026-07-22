@@ -303,6 +303,16 @@ function buildStyleTag(IMG_BASE) {
   .page-transition-row,
   .page-transition-column,
   .page-transition-logo { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
+
+  /* IMA circle logo in the nav — desktop is fine, mobile is way too big and covers the hero.
+     The template renders it as <img class="logo"> at ~180px on mobile; cap it aggressively. */
+  .navbar > img.logo { cursor: pointer; z-index: 20; }
+  @media (max-width: 991px) {
+    .navbar > img.logo { width: 72px !important; height: 72px !important; top: 8px !important; left: 8px !important; }
+  }
+  @media (max-width: 560px) {
+    .navbar > img.logo { width: 56px !important; height: 56px !important; top: 6px !important; left: 6px !important; }
+  }
   .section.intro-section img.marketing-image-mobile,
   .section.second-section img.marketing-image-mobile { display: none !important; }
   .ima-hide, .ima-hide * { display: none !important; visibility: hidden !important; }
@@ -449,6 +459,17 @@ function buildScriptTag(IMG_BASE) {
 
     // Logo — template pointed at /home-slider-layout, we want home.
     $$('.logo-container').forEach(function(a){ a.setAttribute('href', '/'); });
+
+    // The IMA circle logo is rendered as a standalone <img class="logo"> (not
+    // wrapped in an anchor). Make it clickable and route to home.
+    $$('.navbar > img.logo').forEach(function(img){
+      if (img.dataset.imaLinked === '1') return;
+      img.dataset.imaLinked = '1';
+      img.addEventListener('click', function(){ location.href = '/'; });
+      img.setAttribute('role', 'link');
+      img.setAttribute('tabindex', '0');
+      img.setAttribute('alt', 'IMA Karate — Home');
+    });
 
     // Fill in social links (leave anything already set correctly).
     var socials = $$('.social-link');
