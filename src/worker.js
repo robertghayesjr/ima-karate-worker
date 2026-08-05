@@ -22,6 +22,8 @@
 //  the injected JS without a redeploy (mirrors the Clientele Media pattern).
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { handleBeltTestingRoutes } from './beltRoutes.js';
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -36,7 +38,20 @@ export default {
 
     // ── Utility endpoints ────────────────────────────────────────────────────
     if (url.pathname === '/__worker/health') {
-      return json({ ok: true, worker: 'ima-karate-worker', v: 1, origin: env.ORIGIN });
+      return json({ ok: true, worker: 'ima-karate-worker', v: 2, origin: env.ORIGIN });
+    }
+
+    // ── Belt-testing flow (page + JSON API + admin route) ───────────────
+    if (url.pathname === '/belt-testing' ||
+        url.pathname.startsWith('/belt-testing/') ||
+        url.pathname === '/__admin/belt-testing') {
+      try {
+        const res = await handleBeltTestingRoutes(request, env, url);
+        if (res) return res;
+      } catch (e) {
+        console.error('belt-testing route error', e);
+        return json({ error: e.message || 'Belt-testing route failed' }, 500);
+      }
     }
 
     // ── Worker-served pages (don't exist on the Webflow origin) ─────────────

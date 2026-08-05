@@ -2,13 +2,41 @@ name = "ima-karate-worker"
 main = "src/worker.js"
 compatibility_date = "2025-04-01"
 
-# Non-secret environment variables.
-# Optional secret: SCRIPT_UPLOAD_SECRET (set via `wrangler secret put SCRIPT_UPLOAD_SECRET`
-# or in the Cloudflare dashboard). Only needed if you want to hot-patch JS bundles
-# stored in the SCRIPTS KV namespace without a redeploy.
+# ─────────────────────────────────────────────────────────────────────────────
+#  Non-secret environment variables
+# ─────────────────────────────────────────────────────────────────────────────
 [vars]
 ORIGIN = "https://ima-670b18.webflow.io"
 IMG_BASE = "https://cdn.jsdelivr.net/gh/robh-autods/ima-karate-assets@main/"
+
+# Memberstack — five one-time plan IDs, one per belt tier. Set these in the
+# Cloudflare dashboard → Settings → Variables once you've created the plans
+# in Memberstack, or override here.
+MS_PLAN_TINY_TIGER   = "pln_replace_tiny_tiger"    # $60
+MS_PLAN_WHITE_YELLOW = "pln_replace_white_yellow"  # $135
+MS_PLAN_ORANGE_GREEN = "pln_replace_orange_green"  # $175
+MS_PLAN_PURPLE_BLUE  = "pln_replace_purple_blue"   # $255
+MS_PLAN_BROWN        = "pln_replace_brown"         # $365
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Secrets (set with `wrangler secret put <NAME>` or in the CF dashboard)
+# ─────────────────────────────────────────────────────────────────────────────
+#   MEMBERSTACK_SECRET_KEY       Memberstack Admin API secret (sk_...)
+#   ZAPIER_DOCUSIGN_HOOK_URL     Zapier catch-hook URL that triggers your
+#                                DocuSign envelope Zap. Worker POSTs JSON.
+#   ADMIN_TOKEN                  Bearer token for /__admin/* routes.
+#   MS_WEBHOOK_SECRET            (optional) Memberstack webhook signing secret.
+#   SCRIPT_UPLOAD_SECRET         (optional) SCRIPTS KV upload guard.
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  KV namespaces
+# ─────────────────────────────────────────────────────────────────────────────
+# BELT_TEST holds the reconfigurable test date + related config. Create with:
+#   wrangler kv:namespace create BELT_TEST
+# Then paste the returned id below.
+[[kv_namespaces]]
+binding = "BELT_TEST"
+id = "REPLACE_WITH_BELT_TEST_KV_ID"
 
 # Custom domain routing is configured in the Cloudflare dashboard:
 #   Workers & Pages → ima-karate-worker → Settings → Domains & Routes

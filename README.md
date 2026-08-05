@@ -84,4 +84,85 @@ Fetch: `GET /script/ima-content.js`
 
 ## Health check
 
-`GET /__worker/health` → `{ ok: true, worker: "ima-karate-worker", v: 1, origin: "..." }`
+`GET /__worker/health` → `{ ok: true, worker: "ima-karate-worker", v: 2, origin: "..." }`
+
+---
+
+## Belt-testing signup flow (`/belt-testing`)
+
+Self-contained signup page + wizard that mirrors the paper Kyu-testing application. Pipeline:
+
+1. User picks a tier + fills the form on `/belt-testing`
+2. `POST /belt-testing/lookup` — Memberstack Admin API searches by email, then by first+last name
+3. If no match, `POST /belt-testing/signup` creates a Memberstack member
+4. `POST /belt-testing/checkout` — stashes the application in KV keyed by memberId and returns a Memberstack Stripe-Checkout URL for the belt-tier plan
+5. Memberstack redirects back to `GET /belt-testing/post-payment?memberId=…` — which flips `belt-test-paid=true` and fires the Zapier webhook to generate a pre-filled DocuSign envelope
+6. User signs the DocuSign envelope (emailed to them). A DocuSign "Envelope Completed" trigger in Zapier hits `POST /belt-testing/webhook/signed` with `{ memberId, envelopeId }` — we flip `belt-test-signed=true`
+7. User lands on `/belt-testing/thank-you`, which reads the test date from KV so it stays accurate across tests
+
+### One-time setup
+
+**A. Create the KV namespace** (holds the reconfigurable test-date config):
+
+```bash
+npx wrangler kv:namespace create BELT_TEST
+```
+
+Paste the returned id into `wrangler.toml` (replace `REPLACE_WITH_BELT_TEST_KV_ID`).
+
+**B. Set secrets:**
+
+```bash
+npx wrangler secret put MEMBERSTACK_SECRET_KEY     # Memberstack Admin API secret (sk_…)
+npx wrangler secret put ZAPIER_DOCUSIGN_HOOK_URL   # Zapier catch-hook that fires your DocuSign envelope Zap
+npx wrangler secret put ADMIN_TOKEN                # random string — protects /__admin/belt-testing
+```
+
+**C. Create 5 one-time Memberstack plans** (one per belt tier) and paste each plan ID into `wrangler.toml`:
+
+| Tier | Price | `wrangler.toml` var |
+|---|---|---|
+| Tiny Tiger | $60 | `MS_PLAN_TINY_TIGER` |
+| White/yellow | $135 | `MS_PLAN_WHITE_YELLOW` |
+| Orange/green | $175 | `MS_PLAN_ORANGE_GREEN` |
+| Purple/blue | $255 | `MS_PLAN_PURPLE_BLUE` |
+| Brown | $365 | `MS_PLAN_BROWN` |
+
+**D. Configure Zapier:**
+
+- **Zap 1: Create envelope** — trigger: Catch Hook. Action: DocuSign → Create Envelope From Template. Map `tabs.*` from the webhook payload to the matching template tab labels (see `buildDocusignPayload()` in `src/beltRoutes.js` for the full field list). Set the DocuSign "date of test" tab to `{{testDateDisplay}}`.
+- **Zap 2: Mark signed** — trigger: DocuSign → Envelope Completed. Action: Webhooks by Zapier → POST to `https://ima.rob-hayes.com/belt-testing/webhook/signed` with body `{ "memberId": "{{metadata.memberId}}", "envelopeId": "{{envelopeId}}" }`.
+
+**E. Update the belt-test date without a deploy:**
+
+```bash
+curl -X POST https://ima.rob-hayes.com/__admin/belt-testing \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "testDate": "2026-10-24",
+    "testDateDisplay": "October 24, 2026",
+    "testDay": "Saturday",
+    "lateFeeCutoff": "2026-10-22",
+    "applicationCutoff": "2026-10-22"
+  }'
+```
+
+`GET /__admin/belt-testing` (with the same bearer token) returns the current config.
+
+### DocuSign template setup
+
+Add these tab labels to your DocuSign template so Zapier can pre-fill them:
+
+`salutation`, `first_name`, `middle_name`, `last_name`, `age`, `membership_number`, `present_belt`, `email`, `phone`, `dojo`, `tier_label`, `tier_id`, `base_amount`, `manual_amount`, `late_amount`, `total_amount`, `wants_manual`, `is_late`, `test_date`, `testing_time`, `dojo_location`.
+
+### Memberstack custom fields written by the worker
+
+| Field | Value |
+|---|---|
+| `belt-test-paid` | `true` after Stripe checkout success |
+| `belt-test-signed` | `true` after DocuSign envelope completed |
+| `belt-test-tier` | tier id (e.g. `orange_green`) |
+| `belt-test-date` | ISO date (e.g. `2026-08-29`) |
+| `metaData.docusignEnvelopeId` | envelope UUID |
+| `metaData.beltTestApplication` | full JSON snapshot of the form |
