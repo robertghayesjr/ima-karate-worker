@@ -1,0 +1,36 @@
+{
+  "templateId": null,
+  "signerEmail": "alex.doe@example.com",
+  "signerName": "Alex Doe",
+  "testDate": "2026-08-29",
+  "testDateDisplay": "August 29, 2026",
+  "testingTime": "12:00 Noon",
+  "location": "IMA Dojo — 1340 Main St., Louisville, CO 80027",
+  "tabs": {
+    "salutation": "Mr.",
+    "first_name": "Alex",
+    "middle_name": "",
+    "last_name": "Doe",
+    "age": "12",
+    "membership_number": "IMA-04421",
+    "present_belt": "Full orange",
+    "email": "alex.doe@example.com",
+    "phone": "(303) 555-0123",
+    "dojo": "IMA Dojo",
+    "tier_label": "Orange/white stripe through full green belts",
+    "tier_id": "orange_green",
+    "base_amount": "175.00",
+    "manual_amount": "0.00",
+    "late_amount": "0.00",
+    "total_amount": "175.00",
+    "wants_manual": "No",
+    "is_late": "No",
+    "test_date": "August 29, 2026",
+    "testing_time": "11:45 AM (test starts 12:00 Noon)",
+    "dojo_location": "IMA Dojo — 1340 Main St., Louisville, CO 80027"
+  },
+  "metadata": {
+    "memberId": "mem_sample_abcdef123456",
+    "applicationCreatedAt": "2026-08-05T18:00:00.000Z"
+  }
+}
