@@ -81,6 +81,10 @@ export async function handleBeltTestingRoutes(request, env, url) {
   }
 
   // ── JSON API ─────────────────────────────────────────────────────────────
+  // Admin route accepts both GET (read config) and POST (update). Handled
+  // before the POST-only guard below.
+  if (p === '/__admin/belt-testing')      return apiAdmin(request, env);
+
   if (request.method !== 'POST') return null;
 
   if (p === '/belt-testing/lookup')       return apiLookup(request, env);
@@ -89,8 +93,6 @@ export async function handleBeltTestingRoutes(request, env, url) {
   if (p === '/belt-testing/docusign-hook')return apiDocusignHook(request, env);
   if (p === '/belt-testing/webhook/paid') return apiWebhookPaid(request, env);
   if (p === '/belt-testing/webhook/signed') return apiWebhookSigned(request, env);
-
-  if (p === '/__admin/belt-testing')      return apiAdmin(request, env);
 
   return null;
 }
