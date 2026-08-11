@@ -9,6 +9,12 @@ compatibility_date = "2025-04-01"
 ORIGIN = "https://ima-670b18.webflow.io"
 IMG_BASE = "https://cdn.jsdelivr.net/gh/robh-autods/ima-karate-assets@main/"
 
+# Demo mode — when "1", the belt-testing flow skips real Memberstack signup,
+# Stripe checkout, and DocuSign, and instead routes through /belt-testing/mock-*
+# pages so the whole journey can be demoed. Flip to "0" once Memberstack plan
+# IDs + DocuSign JWT secrets are configured.
+DEMO_MODE = "1"
+
 # Memberstack — five one-time plan IDs, one per belt tier. Set these in the
 # Cloudflare dashboard → Settings → Variables once you've created the plans
 # in Memberstack, or override here.
