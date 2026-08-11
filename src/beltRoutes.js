@@ -19,6 +19,7 @@ import {
 } from './memberstack.js';
 import { buildBeltTestingPage } from './beltTestingPage.js';
 import { buildBeltTestThankYou } from './beltThankYou.js';
+import { sendBeltTestEnvelope, verifyConnectSignature } from './docusign.js';
 
 function json(obj, status = 200, extra = {}) {
   return new Response(JSON.stringify(obj), {
@@ -90,9 +91,9 @@ export async function handleBeltTestingRoutes(request, env, url) {
   if (p === '/belt-testing/lookup')       return apiLookup(request, env);
   if (p === '/belt-testing/signup')       return apiSignup(request, env);
   if (p === '/belt-testing/checkout')     return apiCheckout(request, env);
-  if (p === '/belt-testing/docusign-hook')return apiDocusignHook(request, env);
   if (p === '/belt-testing/webhook/paid') return apiWebhookPaid(request, env);
   if (p === '/belt-testing/webhook/signed') return apiWebhookSigned(request, env);
+  if (p === '/belt-testing/docusign-connect') return apiDocusignConnect(request, env);
 
   return null;
 }
@@ -246,24 +247,31 @@ async function handlePostPayment(request, env, url) {
     console.warn('mark paid failed:', e.message);
   }
 
-  // Fire the Zapier webhook — Zap generates the DocuSign envelope with
-  // pre-filled fields and emails the signer.
-  if (env.ZAPIER_DOCUSIGN_HOOK_URL && stash) {
+  // Send DocuSign envelope directly (JWT auth from Worker) — replaces the
+  // former Zapier hop. On failure we still show the interstitial so the user
+  // isn't stranded; they'll just get a manual email from us.
+  let docusignError = null;
+  if (stash) {
     const member = await getMember(env, memberId).catch(() => null);
     const payload = buildDocusignPayload(stash, member, cfg);
     try {
-      await fetch(env.ZAPIER_DOCUSIGN_HOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const result = await sendBeltTestEnvelope(env, payload);
+      // Stash envelope ID against member so /webhook/signed can correlate.
+      try {
+        await env.IMA_KARATE.put(
+          `envelope:${result.envelopeId}`,
+          JSON.stringify({ memberId, ...payload.metadata }),
+          { expirationTtl: 60 * 60 * 24 * 30 },
+        );
+      } catch (e) { console.warn('envelope stash failed:', e.message); }
     } catch (e) {
-      console.warn('Zapier webhook failed:', e.message);
+      console.error('DocuSign send failed:', e.message);
+      docusignError = e.message;
     }
   }
 
   // Interstitial: tell them to check their inbox and sign, then go to thank-you.
-  return html(buildSigningInterstitial(cfg, stash));
+  return html(buildSigningInterstitial(cfg, stash, docusignError));
 }
 
 function buildDocusignPayload(app, member, cfg) {
@@ -308,7 +316,7 @@ function buildDocusignPayload(app, member, cfg) {
   };
 }
 
-function buildSigningInterstitial(cfg, app) {
+function buildSigningInterstitial(cfg, app, docusignError) {
   const nameLine = app ? `${app.firstName || ''} ${app.lastName || ''}`.trim() : '';
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -349,8 +357,9 @@ async function apiWebhookPaid(request, env) {
   return json({ ok: true });
 }
 
-// POST /belt-testing/webhook/signed — Zapier fires this from a DocuSign
-// "Envelope Completed" trigger so we can flip belt-test-signed = true.
+// POST /belt-testing/webhook/signed — legacy Zapier hook target. Still
+// supported for any external tool that wants to force a member's
+// belt-test-signed flag; expects { memberId, envelopeId? }.
 async function apiWebhookSigned(request, env) {
   const body = await request.json().catch(() => null);
   if (!body?.memberId) return json({ error: 'memberId required' }, 400);
@@ -361,17 +370,40 @@ async function apiWebhookSigned(request, env) {
   return json({ ok: true });
 }
 
-// Fallback endpoint if you want to fire the DocuSign hook manually.
-async function apiDocusignHook(request, env) {
-  const body = await request.json().catch(() => null);
-  if (!body) return json({ error: 'Invalid JSON' }, 400);
-  if (!env.ZAPIER_DOCUSIGN_HOOK_URL) return json({ error: 'ZAPIER_DOCUSIGN_HOOK_URL not set' }, 500);
-  const res = await fetch(env.ZAPIER_DOCUSIGN_HOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  return json({ ok: res.ok, status: res.status });
+// POST /belt-testing/docusign-connect — DocuSign Connect webhook.
+// Configure this URL in DocuSign Admin → Connect → Custom Configuration.
+// Enable "Envelope Signed/Completed" event. Include custom envelope fields.
+async function apiDocusignConnect(request, env) {
+  const raw = await request.text();
+  const sigHeader = request.headers.get('x-docusign-signature-1') || '';
+  const ok = await verifyConnectSignature(env, raw, sigHeader);
+  if (!ok) return json({ error: 'Invalid signature' }, 401);
+
+  let body;
+  try { body = JSON.parse(raw); } catch { return json({ error: 'Invalid JSON' }, 400); }
+
+  // DocuSign Connect JSON schema: { event, data: { envelopeId, envelopeSummary: { status, customFields, ... } } }
+  const envelopeId = body?.data?.envelopeId || body?.envelopeId;
+  const status = body?.data?.envelopeSummary?.status || body?.event || '';
+  if (!envelopeId) return json({ error: 'missing envelopeId' }, 400);
+
+  // Look up memberId — first from custom envelope fields, then from KV.
+  let memberId = '';
+  const cf = body?.data?.envelopeSummary?.customFields?.textCustomFields || [];
+  const mf = cf.find((f) => f.name === 'memberId');
+  if (mf?.value) memberId = mf.value;
+
+  if (!memberId) {
+    const stash = await env.IMA_KARATE.get(`envelope:${envelopeId}`);
+    if (stash) { try { memberId = JSON.parse(stash).memberId || ''; } catch {} }
+  }
+
+  if (memberId && /completed|signed/i.test(status)) {
+    await recordBeltTestProgress(env, memberId, { signed: true, envelopeId }).catch((e) =>
+      console.warn('mark signed failed:', e.message),
+    );
+  }
+  return json({ ok: true, memberId, envelopeId, status });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

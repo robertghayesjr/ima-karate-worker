@@ -22,9 +22,18 @@ MS_PLAN_BROWN        = "pln_replace_brown"         # $365
 #  Secrets (set with `wrangler secret put <NAME>` or in the CF dashboard)
 # ─────────────────────────────────────────────────────────────────────────────
 #   MEMBERSTACK_SECRET_KEY       Memberstack Admin API secret (sk_...)
-#   ZAPIER_DOCUSIGN_HOOK_URL     Zapier catch-hook URL that triggers your
-#                                DocuSign envelope Zap. Worker POSTs JSON.
 #   ADMIN_TOKEN                  Bearer token for /__admin/* routes.
+#
+#   DocuSign JWT auth (direct-from-Worker envelope sending — no Zapier):
+#   DOCUSIGN_INTEGRATION_KEY     Integrator/Client ID (UUID) from DocuSign admin
+#   DOCUSIGN_USER_GUID           Sending user's API user ID (UUID)
+#   DOCUSIGN_ACCOUNT_ID          Account ID (ours: 6b65537a-a0f5-4bd6-802d-1daa34fe38d8)
+#   DOCUSIGN_TEMPLATE_ID         Template ID for the belt-test waiver
+#   DOCUSIGN_RSA_PRIVATE_KEY     PEM-formatted RSA private key (multi-line)
+#   DOCUSIGN_BASE_URI            e.g. https://na4.docusign.net
+#   DOCUSIGN_OAUTH_HOST          (optional) account.docusign.com | account-d.docusign.com
+#   DOCUSIGN_CONNECT_HMAC_KEY    (optional) HMAC secret for Connect webhook auth
+#
 #   MS_WEBHOOK_SECRET            (optional) Memberstack webhook signing secret.
 #   SCRIPT_UPLOAD_SECRET         (optional) SCRIPTS KV upload guard.
 

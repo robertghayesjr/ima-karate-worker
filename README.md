@@ -96,9 +96,11 @@ Self-contained signup page + wizard that mirrors the paper Kyu-testing applicati
 2. `POST /belt-testing/lookup` — Memberstack Admin API searches by email, then by first+last name
 3. If no match, `POST /belt-testing/signup` creates a Memberstack member
 4. `POST /belt-testing/checkout` — stashes the application in KV keyed by memberId and returns a Memberstack Stripe-Checkout URL for the belt-tier plan
-5. Memberstack redirects back to `GET /belt-testing/post-payment?memberId=…` — which flips `belt-test-paid=true` and fires the Zapier webhook to generate a pre-filled DocuSign envelope
-6. User signs the DocuSign envelope (emailed to them). A DocuSign "Envelope Completed" trigger in Zapier hits `POST /belt-testing/webhook/signed` with `{ memberId, envelopeId }` — we flip `belt-test-signed=true`
+5. Memberstack redirects back to `GET /belt-testing/post-payment?memberId=…` — which flips `belt-test-paid=true` and calls **DocuSign directly** (JWT auth from the Worker) to generate a pre-filled envelope. **No Zapier required.**
+6. User signs the DocuSign envelope (emailed to them). DocuSign Connect POSTs to `/belt-testing/docusign-connect` — we flip `belt-test-signed=true`
 7. User lands on `/belt-testing/thank-you`, which reads the test date from KV so it stays accurate across tests
+
+**Full setup guide with every dashboard step:** [`docs/belt-testing-setup.md`](docs/belt-testing-setup.md). Waiver PDF template with anchor markers ready for DocuSign upload: [`docs/kyu-belt-testing-template.pdf`](docs/kyu-belt-testing-template.pdf).
 
 ### One-time setup
 
@@ -110,12 +112,17 @@ npx wrangler kv:namespace create IMA_KARATE
 
 Paste the returned id into `wrangler.toml` (replace `REPLACE_WITH_IMA_KARATE_KV_ID`).
 
-**B. Set secrets:**
+**B. Set secrets** (Memberstack + DocuSign JWT credentials, no Zapier):
 
 ```bash
-npx wrangler secret put MEMBERSTACK_SECRET_KEY     # Memberstack Admin API secret (sk_…)
-npx wrangler secret put ZAPIER_DOCUSIGN_HOOK_URL   # Zapier catch-hook that fires your DocuSign envelope Zap
-npx wrangler secret put ADMIN_TOKEN                # random string — protects /__admin/belt-testing
+npx wrangler secret put MEMBERSTACK_SECRET_KEY   # Memberstack Admin API secret (sk_…)
+npx wrangler secret put ADMIN_TOKEN              # random string — protects /__admin/belt-testing
+npx wrangler secret put DOCUSIGN_INTEGRATION_KEY # Integrator/Client ID (UUID) from DocuSign admin
+npx wrangler secret put DOCUSIGN_USER_GUID       # Sending user's API user ID (UUID)
+npx wrangler secret put DOCUSIGN_ACCOUNT_ID      # 6b65537a-a0f5-4bd6-802d-1daa34fe38d8
+npx wrangler secret put DOCUSIGN_TEMPLATE_ID     # Template UUID (from DocuSign template you build)
+npx wrangler secret put DOCUSIGN_RSA_PRIVATE_KEY # PEM contents of the JWT signing key
+npx wrangler secret put DOCUSIGN_BASE_URI        # https://na4.docusign.net
 ```
 
 **C. Create 5 one-time Memberstack plans** (one per belt tier) and paste each plan ID into `wrangler.toml`:
@@ -128,10 +135,13 @@ npx wrangler secret put ADMIN_TOKEN                # random string — protects 
 | Purple/blue | $255 | `MS_PLAN_PURPLE_BLUE` |
 | Brown | $365 | `MS_PLAN_BROWN` |
 
-**D. Configure Zapier:**
+**D. Configure DocuSign** (see [full guide](docs/belt-testing-setup.md)):
 
-- **Zap 1: Create envelope** — trigger: Catch Hook. Action: DocuSign → Create Envelope From Template. Map `tabs.*` from the webhook payload to the matching template tab labels (see `buildDocusignPayload()` in `src/beltRoutes.js` for the full field list). Set the DocuSign "date of test" tab to `{{testDateDisplay}}`.
-- **Zap 2: Mark signed** — trigger: DocuSign → Envelope Completed. Action: Webhooks by Zapier → POST to `https://ima.rob-hayes.com/belt-testing/webhook/signed` with body `{ "memberId": "{{metadata.memberId}}", "envelopeId": "{{envelopeId}}" }`.
+1. Create an **Integration Key** with JWT Grant enabled; download the RSA private key.
+2. Grant one-time consent by visiting the consent URL (the Worker returns it as an error message on first envelope send if consent is missing).
+3. Upload [`docs/kyu-belt-testing-template.pdf`](docs/kyu-belt-testing-template.pdf) as a DocuSign template, add anchor-tagged text tabs matching the 21 labels below, one Signature tab (`/sn1/`) and one Date Signed tab (`/ds1/`).
+4. Add a hidden envelope custom field named `memberId` to the template.
+5. Configure **DocuSign Connect** to POST envelope-completed events to `https://ima.rob-hayes.com/belt-testing/docusign-connect`.
 
 **E. Update the belt-test date without a deploy:**
 
