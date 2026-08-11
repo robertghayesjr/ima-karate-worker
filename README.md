@@ -105,10 +105,10 @@ Self-contained signup page + wizard that mirrors the paper Kyu-testing applicati
 **A. Create the KV namespace** (holds the reconfigurable test-date config):
 
 ```bash
-npx wrangler kv:namespace create BELT_TEST
+npx wrangler kv:namespace create IMA_KARATE
 ```
 
-Paste the returned id into `wrangler.toml` (replace `REPLACE_WITH_BELT_TEST_KV_ID`).
+Paste the returned id into `wrangler.toml` (replace `REPLACE_WITH_IMA_KARATE_KV_ID`).
 
 **B. Set secrets:**
 

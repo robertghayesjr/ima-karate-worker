@@ -3,7 +3,7 @@
 #  IMA Karate — one-shot Belt-Testing setup
 #
 #  Runs every step I cannot do from a chat window:
-#    1. Creates the BELT_TEST KV namespace on your Cloudflare account
+#    1. Creates the IMA_KARATE KV namespace on your Cloudflare account
 #    2. Patches wrangler.toml with the returned KV id
 #    3. Sets the three Worker secrets (MEMBERSTACK_SECRET_KEY,
 #       ZAPIER_DOCUSIGN_HOOK_URL, ADMIN_TOKEN)
@@ -49,8 +49,8 @@ fi
 
 # ── 1. Create the KV namespace ─────────────────────────────────────────────
 echo
-echo "▶︎ Creating KV namespace 'BELT_TEST'…"
-KV_OUT="$(npx wrangler kv:namespace create BELT_TEST 2>&1 || true)"
+echo "▶︎ Creating KV namespace 'IMA_KARATE'…"
+KV_OUT="$(npx wrangler kv:namespace create IMA_KARATE 2>&1 || true)"
 echo "$KV_OUT"
 
 KV_ID="$(printf '%s' "$KV_OUT" | grep -oE 'id = "[^"]+"' | head -1 | sed 's/.*"\(.*\)".*/\1/')"
@@ -59,16 +59,16 @@ if [[ -z "$KV_ID" ]]; then
   echo
   echo "⚠️  Couldn't auto-detect the KV id (it may already exist)."
   echo "    Paste the id printed above, or find it via 'npx wrangler kv:namespace list':"
-  read -r -p "BELT_TEST KV id: " KV_ID
+  read -r -p "IMA_KARATE KV id: " KV_ID
 fi
 
 echo "✔︎ Using KV id: $KV_ID"
 
 # ── 2. Patch wrangler.toml ─────────────────────────────────────────────────
-if grep -q "REPLACE_WITH_BELT_TEST_KV_ID" wrangler.toml; then
+if grep -q "REPLACE_WITH_IMA_KARATE_KV_ID" wrangler.toml; then
   echo
   echo "▶︎ Writing KV id into wrangler.toml…"
-  sed -i.bak "s|REPLACE_WITH_BELT_TEST_KV_ID|$KV_ID|" wrangler.toml
+  sed -i.bak "s|REPLACE_WITH_IMA_KARATE_KV_ID|$KV_ID|" wrangler.toml
   echo "✔︎ wrangler.toml patched (backup at wrangler.toml.bak)."
 else
   echo "ℹ︎ wrangler.toml already has a KV id — leaving it alone."

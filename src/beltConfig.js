@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  Belt-testing configuration (backed by the BELT_TEST KV namespace)
+//  Belt-testing configuration (backed by the IMA_KARATE KV namespace)
 //  ─────────────────────────────────────────────────────────────────────────
 //  KV key: "current" → JSON of BeltTestConfig
 //
@@ -43,8 +43,8 @@ const KV_KEY = 'current';
 
 /** Read the active belt-test config, seeding defaults if missing. */
 export async function getBeltConfig(env) {
-  if (!env.BELT_TEST) return { ...DEFAULT_CONFIG, _source: 'defaults' };
-  const raw = await env.BELT_TEST.get(KV_KEY);
+  if (!env.IMA_KARATE) return { ...DEFAULT_CONFIG, _source: 'defaults' };
+  const raw = await env.IMA_KARATE.get(KV_KEY);
   if (!raw) return { ...DEFAULT_CONFIG, _source: 'defaults' };
   try {
     const parsed = JSON.parse(raw);
@@ -59,7 +59,7 @@ export async function updateBeltConfig(env, patch) {
   const current = await getBeltConfig(env);
   const next = { ...current, ...patch };
   delete next._source;
-  await env.BELT_TEST.put(KV_KEY, JSON.stringify(next, null, 2));
+  await env.IMA_KARATE.put(KV_KEY, JSON.stringify(next, null, 2));
   return next;
 }
 

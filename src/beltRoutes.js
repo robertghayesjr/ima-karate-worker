@@ -190,7 +190,7 @@ async function apiCheckout(request, env) {
     testDateDisplay: cfg.testDateDisplay,
     createdAt: new Date().toISOString(),
   };
-  await env.BELT_TEST.put(stashKey, JSON.stringify(stash), { expirationTtl: 60 * 60 * 24 * 7 });
+  await env.IMA_KARATE.put(stashKey, JSON.stringify(stash), { expirationTtl: 60 * 60 * 24 * 7 });
 
   // Also stamp the member with what they applied for so support can see it.
   try {
@@ -234,7 +234,7 @@ async function handlePostPayment(request, env, url) {
   if (!memberId) return new Response('Missing memberId', { status: 400 });
 
   const cfg = await getBeltConfig(env);
-  const stashRaw = await env.BELT_TEST.get(`application:${memberId}`);
+  const stashRaw = await env.IMA_KARATE.get(`application:${memberId}`);
   const stash = stashRaw ? JSON.parse(stashRaw) : null;
 
   // Mark as paid (belt-test-paid = true).

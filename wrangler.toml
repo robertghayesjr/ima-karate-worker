@@ -31,12 +31,11 @@ MS_PLAN_BROWN        = "pln_replace_brown"         # $365
 # ─────────────────────────────────────────────────────────────────────────────
 #  KV namespaces
 # ─────────────────────────────────────────────────────────────────────────────
-# BELT_TEST holds the reconfigurable test date + related config. Create with:
-#   wrangler kv:namespace create BELT_TEST
-# Then paste the returned id below.
+# IMA_KARATE holds the reconfigurable belt-test config (key: "current").
+# Namespace created in Cloudflare dashboard on 2026-08-11.
 [[kv_namespaces]]
-binding = "BELT_TEST"
-id = "REPLACE_WITH_BELT_TEST_KV_ID"
+binding = "IMA_KARATE"
+id = "b88e14c597dc445c8aa8061dba031e90"
 
 # Custom domain routing is configured in the Cloudflare dashboard:
 #   Workers & Pages → ima-karate-worker → Settings → Domains & Routes
