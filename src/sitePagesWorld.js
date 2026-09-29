@@ -2,9 +2,9 @@
 //  News & Events + Dojo Locations pages. Copy follows imakarate.com.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { esc, IMG_ORIGIN, pageShell, pageHero } from './siteTheme.js';
+import { esc, IMG, pageShell, pageHero } from './siteTheme.js';
 
-const I = (path) => `${IMG_ORIGIN}/${path.replace(/^\//, '')}`;
+const I = (name) => `${IMG}/${name}`;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  NEWS & EVENTS
@@ -15,7 +15,7 @@ export function buildNewsEventsPage() {
     eyebrow: 'News & Events',
     title: 'News & Events',
     lead: 'The latest from the IMA family.',
-    bg: I('2025/07/GASSUKUMountain-002-465x620.jpg'),
+    bg: I('gasshuku-mountain.jpg'),
     crumbs: [{ label: 'Home', href: '/' }, { label: 'News & Events' }],
   })}
 
@@ -23,7 +23,7 @@ export function buildNewsEventsPage() {
   <div class="section">
     <div class="grid-2" style="align-items:start">
       <div class="img-frame reveal" style="max-width:440px">
-        <img src="${I('2025/07/GASSUKUMountain-002-465x620.jpg')}" alt="2025 IMA Gasshuku" loading="lazy" />
+        <img src="${I('gasshuku-mountain.jpg')}" alt="2025 IMA Gasshuku" loading="lazy" />
       </div>
       <div class="reveal" data-delay="90">
         <p class="eyebrow">Annual Training Camp</p>
@@ -56,7 +56,7 @@ export function buildNewsEventsPage() {
         </div>
         <div class="reveal" data-delay="90">
           <div class="img-frame">
-            <img src="${I('2025/03/MadaniFlyer.png')}" alt="2025 Rocky Mountain Championship flyer" loading="lazy" />
+            <img src="${I('madani-flyer.png')}" alt="2025 Rocky Mountain Championship flyer" loading="lazy" />
           </div>
           <div class="prose" style="margin-top:18px">
             <p><strong>2025 Rocky Mountain International Championship</strong> — held in Louisville, Colorado, USA at Monarch High School. It is with great pleasure that we invite you to the RMC tournament hosted by the International Martial Arts Association.</p>
@@ -84,7 +84,7 @@ export function buildNewsEventsPage() {
 export function buildDojoLocationsPage() {
   const states = [
     ['Colorado', [
-      { name: 'IMA Honbu Dojo', head: 'Chief Instructor: Hanshi Cyrus Madani · Head Instructor: Shihan Fariba Madani', addr: '1340 Main Street, Louisville, CO 80027', phone: '(303) 665-0339', img: '2023/02/Hanshi-edited-1-620x620.jpg' },
+      { name: 'IMA Honbu Dojo', head: 'Chief Instructor: Hanshi Cyrus Madani · Head Instructor: Shihan Fariba Madani', addr: '1340 Main Street, Louisville, CO 80027', phone: '(303) 665-0339', img: 'loc-hanshi.jpg' },
       { name: 'Louisville Recreation Center', head: 'Head instructor: Sensei Brian Meyer, Godan', addr: '900 W Via Appia, Louisville, CO', note: 'Assistant instructors: Dasha Petropavlovskikh, Ben Gygi, Miriam Rosenshein' },
       { name: 'Boulder Valley YMCA — Arapahoe Campus', head: 'Instructor: Kamran Madani, Nidan', addr: '2800 Dagny Way, Lafayette, CO 80026', phone: '(303) 664-5450', note: 'Assistant instructors: Nisha Maheshwari, Alex Miller' },
       { name: 'North Fork Karate (Paonia)', head: 'Chief Instructor: Shihan Rick McGavin · Head Instructor: Jennifer McGavin, Nidan', addr: '311 Second Street, Paonia, CO 81428', phone: '(970) 527-5477', site: 'www.northforkkarate.com' },
@@ -96,19 +96,19 @@ export function buildDojoLocationsPage() {
       { name: 'Las Vegas Karate-Do', head: 'Chief Instructor: Sensei Catalin (Nick) Neagu, Godan', addr: 'Las Vegas, NV', phone: '(702) 944-4346', site: 'www.karatekrav.com' },
     ]],
     ['New York', [
-      { name: 'IMA Nihon Karate Do (Forest Hills)', head: 'Chief instructor: Shihan Shanta Thokar', addr: '113-25 Queens Blvd, Suite 117, Forest Hills, NY 11375', phone: '269-267-5882', site: 'www.imakarate.org', img: '2023/02/5f384ded-d426-44c5-a421-fd336b45a42e-1-465x620.jpg' },
+      { name: 'IMA Nihon Karate Do (Forest Hills)', head: 'Chief instructor: Shihan Shanta Thokar', addr: '113-25 Queens Blvd, Suite 117, Forest Hills, NY 11375', phone: '269-267-5882', site: 'www.imakarate.org', img: 'loc-forest-hills.jpg' },
       { name: 'IMA Nihon Karate Do (Woodside)', head: 'Chief instructor: Shihan Shanta Thokar', addr: '39-30 58th Street, Woodside, NY 11377', phone: '917-215-3685', site: 'www.imakarate.org' },
-      { name: 'IMA New York (Queens)', head: 'Chief instructor: Sensei Parkai Rai', addr: '41-32 75th Street, Elmhurst, NY 11373', phone: '(646) 339-4410', img: '2024/05/parkhi-rai-495x620.jpg' },
+      { name: 'IMA New York (Queens)', head: 'Chief instructor: Sensei Parkai Rai', addr: '41-32 75th Street, Elmhurst, NY 11373', phone: '(646) 339-4410', img: 'loc-parkhi.jpg' },
     ]],
     ['Pennsylvania', [
       { name: 'Bethlehem YMCA', head: 'Chief Instructor: Senpai Ernesto Barnabas · Head Instructor: Senpai Sara Barnabas', addr: '430 E. Broad Street, Bethlehem, PA', note: 'Nidan-ho assistant instructors' },
     ]],
     ['Texas', [
-      { name: 'IMA Karate Houston', head: 'Chief Instructor: Shihan Patrick Jean-Claude Richoux · Head Instructor: Robert Cutrera, Sandan', addr: '11850 #Z Bissonnet St., Houston, TX 77099', img: '2023/02/Houston-edited-620x620.jpg' },
+      { name: 'IMA Karate Houston', head: 'Chief Instructor: Shihan Patrick Jean-Claude Richoux · Head Instructor: Robert Cutrera, Sandan', addr: '11850 #Z Bissonnet St., Houston, TX 77099', img: 'loc-houston.jpg' },
     ]],
     ['Utah', [
-      { name: 'IMA Utah (Cottonwood Heights)', head: 'Chief Instructor: Sensei Marius Gilca, Godan', addr: 'Cottonwood Heights Rec. Center, 7500 S. 2700 E., Cottonwood Heights, UT 84121', phone: '(801) 983-5262', site: 'www.imautah.com', note: 'Also: Alta Canyon Sports Center (Sandy) and Montessori Community School (Salt Lake City)', img: '2023/02/Shihan-Utah-edited-620x620.jpg' },
-      { name: 'International Budokan Shotokan Karate (West Valley City)', head: 'Chief Instructor: Sensei Amadou Niang', addr: 'Redwood Recreation Center, 3060 Lester Ave, Salt Lake City, UT', phone: '(801) 450-6172', note: 'Also: Northwest Recreation Center and Central City Recreation Center', img: '2023/02/Utah-2-edited-620x620.jpg' },
+      { name: 'IMA Utah (Cottonwood Heights)', head: 'Chief Instructor: Sensei Marius Gilca, Godan', addr: 'Cottonwood Heights Rec. Center, 7500 S. 2700 E., Cottonwood Heights, UT 84121', phone: '(801) 983-5262', site: 'www.imautah.com', note: 'Also: Alta Canyon Sports Center (Sandy) and Montessori Community School (Salt Lake City)', img: 'loc-utah-shihan.jpg' },
+      { name: 'International Budokan Shotokan Karate (West Valley City)', head: 'Chief Instructor: Sensei Amadou Niang', addr: 'Redwood Recreation Center, 3060 Lester Ave, Salt Lake City, UT', phone: '(801) 450-6172', note: 'Also: Northwest Recreation Center and Central City Recreation Center', img: 'loc-utah-2.jpg' },
     ]],
   ];
 
@@ -117,7 +117,6 @@ export function buildDojoLocationsPage() {
     eyebrow: 'Locations',
     title: 'Dojo Locations',
     lead: 'Find an IMA-affiliated dojo near you.',
-    bg: I('2010/09/us_map.gif'),
     crumbs: [{ label: 'Home', href: '/' }, { label: 'Locations' }],
   })}
   <div class="section">
@@ -125,8 +124,8 @@ export function buildDojoLocationsPage() {
       <p><strong>Students:</strong> the IMA Karate website provides class schedules and instructor information for the main dojo location (Honbu Dojo) in Louisville, Colorado. For information about other dojos and training locations, please contact the dojo directly using the details below.</p>
       <p><strong>Karate clubs, organizations and schools:</strong> interested in becoming an <a href="/about/affiliated-dojo" style="color:#d4a24a">IMA-Affiliated Dojo</a>? Read about the many <a href="/about/benefits" style="color:#d4a24a">benefits of joining the IMA Organization</a>.</p>
     </div>
-    <div class="img-frame reveal" style="max-width:680px;margin:36px 0 54px">
-      <img src="${I('2010/09/us_map.gif')}" alt="Map of IMA dojo locations across the United States" loading="lazy" />
+    <div class="img-frame natural reveal" style="max-width:640px;margin:36px 0 54px;background:#0d0d0f;padding:10px">
+      <img src="${I('us-map.gif')}" alt="Map of IMA dojo locations across the United States" loading="lazy" />
     </div>
     ${states
       .map(

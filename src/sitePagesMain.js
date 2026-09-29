@@ -3,9 +3,9 @@
 //  Copy follows the live imakarate.com content.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { esc, IMG_ORIGIN, pageShell, pageHero } from './siteTheme.js';
+import { esc, IMG, pageShell, pageHero } from './siteTheme.js';
 
-const I = (path) => `${IMG_ORIGIN}/${path.replace(/^\//, '')}`;
+const I = (name) => `${IMG}/${name}`;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  HOME
@@ -14,7 +14,7 @@ export function buildHomePage() {
   const content = `
   <!-- HERO -->
   <section class="hero">
-    <div class="hero-bg" style="background-image:url('${I('2022/12/c-@OriginMediaCo-LLC-03394-scaled-Hero.jpg')}')"></div>
+    <div class="hero-bg" style="background-image:url('${I('hero-main.jpg')}')"></div>
     <div class="hero-inner">
       <p class="eyebrow">Louisville, Colorado · Since 1991</p>
       <h1>Developing Karate Athletes of the Highest Level</h1>
@@ -46,9 +46,11 @@ export function buildHomePage() {
         </div>
         <p style="margin-top:22px"><a href="/about" class="card-link">Learn more about IMA Karate →</a></p>
       </div>
-      <div class="img-frame reveal" data-delay="120">
-        <img src="${I('2010/10/madanis.jpg')}" alt="Hanshi Cyrus Madani and Sensei Fariba Madani" loading="lazy" />
-      </div>
+      <div class="portrait-pair reveal" data-delay="120">
+          <div class="p1"><img src="${I('hanshi-portrait.jpg')}" alt="Hanshi Cyrus Madani, Founder and Chief Instructor" loading="lazy" /></div>
+          <div class="p2"><img src="${I('fariba-portrait.jpg')}" alt="Shihan Fariba Madani, Head Instructor" loading="lazy" /></div>
+          <div class="pair-badge"><b>Hanshi & Shihan Madani</b>Founders, IMA Karate</div>
+        </div>
     </div>
   </div>
 
@@ -62,27 +64,27 @@ export function buildHomePage() {
       </div>
       <div class="grid-3">
         <a href="/programs#tiny-tigers" class="card reveal">
-          <div class="card-img"><img src="${I('2022/12/Tiny-Tigers.jpg')}" alt="Tiny Tigers class" loading="lazy" /></div>
+          <div class="card-img"><img src="${I('tiny-tigers-class.jpg')}" alt="Tiny Tigers class" loading="lazy" /></div>
           <div class="card-body"><h3>Tiny Tigers</h3><p>Ages 4–5. Respect, etiquette, and focus through playful karate fundamentals.</p><span class="card-link">Explore →</span></div>
         </a>
         <a href="/programs#little-dragons" class="card reveal" data-delay="90">
-          <div class="card-img"><img src="${I('2023/01/little-dragons.jpg')}" alt="Little Dragons class" loading="lazy" /></div>
+          <div class="card-img"><img src="${I('little-dragons.jpg')}" alt="Little Dragons class" loading="lazy" /></div>
           <div class="card-body"><h3>Little Dragons</h3><p>Ages 5–7. Emotional control and focus built through warmups and games.</p><span class="card-link">Explore →</span></div>
         </a>
         <a href="/programs#youth" class="card reveal" data-delay="180">
-          <div class="card-img"><img src="${I('2022/12/Youth.jpg')}" alt="Youth class" loading="lazy" /></div>
+          <div class="card-img"><img src="${I('youth-class.jpg')}" alt="Youth class" loading="lazy" /></div>
           <div class="card-body"><h3>Youth Classes</h3><p>Traditional Shotokan techniques and forms with proper dojo etiquette.</p><span class="card-link">Explore →</span></div>
         </a>
         <a href="/programs#adults" class="card reveal">
-          <div class="card-img"><img src="${I('2022/12/Teen.jpg')}" alt="Teen and adult class" loading="lazy" /></div>
+          <div class="card-img"><img src="${I('adult-class.jpg')}" alt="Teen and adult class" loading="lazy" /></div>
           <div class="card-body"><h3>Teen / Adult</h3><p>Ages 13 and up, all levels. Conditioning, basics, kata, and kumite.</p><span class="card-link">Explore →</span></div>
         </a>
         <a href="/programs#competition" class="card reveal" data-delay="90">
-          <div class="card-img"><img src="${I('2022/12/Comp-Team.jpg')}" alt="IMA competition team" loading="lazy" /></div>
+          <div class="card-img"><img src="${I('team-track-suits.jpg')}" alt="IMA competition team" loading="lazy" /></div>
           <div class="card-body"><h3>Competition Team</h3><p>Invite-only elite team competing at national and international tournaments.</p><span class="card-link">Explore →</span></div>
         </a>
         <a href="/student-information/belt-testing-guidelines" class="card reveal" data-delay="180">
-          <div class="card-img"><img src="${I('2023/02/tiny-tiger-photo.jpg')}" alt="Belt testing" loading="lazy" /></div>
+          <div class="card-img"><img src="${I('tiny-tiger-photo.jpg')}" alt="Belt testing" loading="lazy" /></div>
           <div class="card-body"><h3>Belt Testing</h3><p>Eight Kyu tests and two Dan tests per year. Register for the next test online.</p><span class="card-link">Explore →</span></div>
         </a>
       </div>
@@ -97,7 +99,7 @@ export function buildHomePage() {
     </div>
     <div class="grid-2">
       <a href="/news-events" class="card reveal">
-        <div class="card-img"><img src="${I('2025/07/GASSUKUMountain-002-465x620.jpg')}" alt="2025 Gasshuku" loading="lazy" /></div>
+        <div class="card-img"><img src="${I('gasshuku-mountain.jpg')}" alt="2025 Gasshuku" loading="lazy" /></div>
         <div class="card-body">
           <h3>2025 Gasshuku</h3>
           <p>Another exciting Gasshuku in Colorado with special guest instructors Sensei Palmer from Peru and Sensei Obran — hundreds of national and international medals and titles between them.</p>
@@ -105,7 +107,7 @@ export function buildHomePage() {
         </div>
       </a>
       <a href="/news-events" class="card reveal" data-delay="120">
-        <div class="card-img"><img src="${I('2025/03/MadaniFlyer.png')}" alt="Rocky Mountain Championships" loading="lazy" /></div>
+        <div class="card-img"><img src="${I('madani-flyer.png')}" alt="Rocky Mountain Championships" loading="lazy" /></div>
         <div class="card-body">
           <h3>Rocky Mountain Championships</h3>
           <p>Celebrating over 30 years of the tournament in Louisville, Colorado. A USA Karate sanctioned event with access to more training and competition opportunities.</p>
@@ -118,7 +120,7 @@ export function buildHomePage() {
 
   <!-- JOIN BAND -->
   <section class="cta-band">
-    <div class="bg" style="background-image:url('${I('2022/12/Join.jpg')}')"></div>
+    <div class="bg" style="background-image:url('${I('join.jpg')}')"></div>
     <div class="inner reveal">
       <p class="eyebrow">Join IMA Honbu Dojo</p>
       <h2>Train With Us in Louisville, CO</h2>
@@ -139,7 +141,7 @@ export function buildHomePage() {
   <div class="section">
     <div class="grid-2">
       <div class="img-frame reveal">
-        <img src="${I('2022/12/Competition-Team.jpg')}" alt="IMA Competition Team" loading="lazy" />
+        <img src="${I('competition-team.jpg')}" alt="IMA Competition Team" loading="lazy" />
       </div>
       <div class="reveal" data-delay="120">
         <p class="eyebrow">IMA Competition Team</p>
@@ -161,7 +163,7 @@ export function buildHomePage() {
       </div>
       <div class="grid-2">
         <div class="img-frame reveal">
-          <img src="${I('2022/12/Student-Resources.jpg')}" alt="Student resources" loading="lazy" />
+          <img src="${I('student-resources.jpg')}" alt="Student resources" loading="lazy" />
         </div>
         <div class="reveal" data-delay="120">
           <div class="prose">
@@ -180,7 +182,7 @@ export function buildHomePage() {
 
   <!-- SCHEDULE CTA -->
   <section class="cta-band">
-    <div class="bg" style="background-image:url('${I('2023/01/adult-class.jpg')}')"></div>
+    <div class="bg" style="background-image:url('${I('adult-class.jpg')}')"></div>
     <div class="inner reveal">
       <p class="eyebrow">Class Schedule</p>
       <h2>Six Days a Week, Year-Round</h2>
@@ -206,7 +208,6 @@ export function buildAboutPage() {
     eyebrow: 'About',
     title: 'About IMA Karate',
     lead: 'A world-recognized karate organization teaching the principles and philosophy of Shotokan Karate.',
-    bg: I('2010/09/unity_trophy_small.jpg'),
     crumbs: [{ label: 'Home', href: '/' }, { label: 'About' }],
   })}
   <div class="section">
@@ -218,8 +219,10 @@ export function buildAboutPage() {
         </div>
         <p style="margin-top:24px"><a href="/how-to-join" class="btn-primary">Join IMA</a></p>
       </div>
-      <div class="img-frame reveal" data-delay="120">
-        <img src="${I('2010/10/madanis.jpg')}" alt="The Madanis" loading="lazy" />
+      <div class="portrait-pair reveal" data-delay="120">
+        <div class="p1"><img src="${I('hanshi-portrait.jpg')}" alt="Hanshi Cyrus Madani" loading="lazy" /></div>
+        <div class="p2"><img src="${I('fariba-portrait.jpg')}" alt="Shihan Fariba Madani" loading="lazy" /></div>
+        <div class="pair-badge"><b>Hanshi & Shihan Madani</b>Founders, IMA Karate</div>
       </div>
     </div>
   </div>
@@ -258,7 +261,7 @@ export function buildHistoryPage() {
     eyebrow: 'About · History',
     title: 'History of IMA',
     lead: 'Teaching the principles of Shotokan Karate since 1991.',
-    bg: I('2010/09/gasshuku_2009.jpg'),
+    bg: I('gasshuku-2009.jpg'),
     crumbs: [{ label: 'Home', href: '/' }, { label: 'About', href: '/about' }, { label: 'History' }],
   })}
   <div class="section">
@@ -269,15 +272,15 @@ export function buildHistoryPage() {
       <p>Old walls were torn down and new walls were put up, not by paid contractors, but by the IMA students and their families, eager to do their part to help build IMA into the type of dojo that they wanted to be a part of.</p>
     </div>
     <div class="grid-2" style="margin-top:44px">
-      <div class="img-frame reveal"><img src="${I('2010/09/Front-View.png')}" alt="The original IMA dojo storefront" loading="lazy" /></div>
-      <div class="img-frame reveal" data-delay="120"><img src="${I('2010/09/Side-View_sml.png')}" alt="Side view of the original dojo" loading="lazy" /></div>
+      <div class="img-frame reveal"><img src="${I('front-view.png')}" alt="The original IMA dojo storefront" loading="lazy" /></div>
+      <div class="img-frame reveal" data-delay="120"><img src="${I('side-view.png')}" alt="Side view of the original dojo" loading="lazy" /></div>
     </div>
     <div class="reveal prose" style="max-width:820px;margin-top:44px">
       <p>Our current facility has a 10,000 square foot main floor, including a 7,000 square foot exercise space and a small playroom for parents with small children.</p>
       <p>IMA’s sense of family has been a driving force behind the success of the organization from the very beginning. Since 1990, thousands of mothers and sons, fathers and daughters, sisters, brothers, and friends have walked through our doors to experience, share, and enjoy the true spirit of karate that is IMA.</p>
     </div>
     <div class="img-frame reveal" style="max-width:640px;margin-top:44px">
-      <img src="${I('2010/09/gasshuku_2009.jpg')}" alt="IMA Gasshuku 2009" loading="lazy" />
+      <img src="${I('gasshuku-2009.jpg')}" alt="IMA Gasshuku 2009" loading="lazy" />
     </div>
   </div>`;
   return pageShell({ title: 'History of IMA | Since 1991', description: 'From a handful of students at the Louisville Rec Center in 1990 to a world-recognized Shotokan karate organization.', activeNav: 'about', content });
@@ -292,14 +295,14 @@ export function buildHanshiPage() {
     eyebrow: 'About · Leadership',
     title: 'Hanshi Cyrus Madani, 9th Dan',
     lead: 'Founder and Chief Instructor of the International Martialarts Association.',
-    bg: I('2010/09/Hanshi.jpg'),
+    bg: I('hanshi-portrait.jpg'),
     crumbs: [{ label: 'Home', href: '/' }, { label: 'About', href: '/about' }, { label: 'Hanshi Madani' }],
   })}
   <div class="section">
     <div class="grid-2">
       <div>
-        <div class="img-frame reveal" style="max-width:420px"><img src="${I('2010/09/Hanshi.jpg')}" alt="Hanshi Cyrus Madani" loading="lazy" /></div>
-        <div class="img-frame reveal" data-delay="120" style="max-width:420px;margin-top:20px"><img src="${I('2010/09/madani_nakayama.jpg')}" alt="Hanshi Madani with Master Nakayama" loading="lazy" /></div>
+        <div class="img-frame reveal" style="max-width:420px"><img src="${I('hanshi-portrait.jpg')}" alt="Hanshi Cyrus Madani" loading="lazy" /></div>
+        <div class="img-frame reveal" data-delay="120" style="max-width:420px;margin-top:20px"><img src="${I('madani-nakayama.jpg')}" alt="Hanshi Madani with Master Nakayama" loading="lazy" /></div>
       </div>
       <div class="reveal" data-delay="90">
         <div class="prose">
@@ -313,7 +316,7 @@ export function buildHanshiPage() {
       </div>
     </div>
     <div class="img-frame reveal" style="max-width:640px;margin-top:44px">
-      <img src="${I('2010/09/hanshi-ref-620x413.jpg')}" alt="Hanshi Madani refereeing" loading="lazy" />
+      <img src="${I('hanshi-ref.jpg')}" alt="Hanshi Madani refereeing" loading="lazy" />
     </div>
   </div>`;
   return pageShell({ title: 'Hanshi Cyrus Madani | Founder & Chief Instructor', description: 'Hanshi Cyrus Madani, 9th Dan, founder and Chief Instructor of the International Martialarts Association.', activeNav: 'about', content });
@@ -328,12 +331,12 @@ export function buildSenseiPage() {
     eyebrow: 'About · Leadership',
     title: 'Sensei Fariba Madani',
     lead: 'Head Instructor for IMA Karate and World Referee.',
-    bg: I('2010/09/fariba_madani..jpg'),
+    bg: I('fariba-portrait.jpg'),
     crumbs: [{ label: 'Home', href: '/' }, { label: 'About', href: '/about' }, { label: 'Sensei Madani' }],
   })}
   <div class="section">
     <div class="grid-2">
-      <div class="img-frame reveal" style="max-width:420px"><img src="${I('2010/09/fariba_madani..jpg')}" alt="Sensei Fariba Madani" loading="lazy" /></div>
+      <div class="img-frame reveal" style="max-width:420px"><img src="${I('fariba-portrait.jpg')}" alt="Sensei Fariba Madani" loading="lazy" /></div>
       <div class="reveal" data-delay="90">
         <div class="prose">
           <p>Fariba Madani was born and raised in northern Iran, the second-to-youngest of five sisters. An athletic youth, Ms. Madani had her first bike at the age of 7 and was the only girl riding bikes in her neighborhood.</p>
@@ -347,7 +350,7 @@ export function buildSenseiPage() {
       </div>
     </div>
     <div class="img-frame reveal" style="max-width:640px;margin-top:44px">
-      <img src="${I('2010/09/referees.jpg')}" alt="Sensei Madani refereeing at an international event" loading="lazy" />
+      <img src="${I('referees.jpg')}" alt="Sensei Madani refereeing at an international event" loading="lazy" />
     </div>
   </div>`;
   return pageShell({ title: 'Sensei Fariba Madani | Head Instructor & World Referee', description: 'Sensei Fariba Madani, Head Instructor for IMA Karate, national and international referee pioneer.', activeNav: 'about', content });
@@ -369,11 +372,11 @@ export function buildAlliancesPage() {
     eyebrow: 'About · Alliances',
     title: 'National & International Alliances',
     lead: 'IMA-affiliated dojos and organizations across five continents.',
-    bg: I('2010/09/us_map.gif'),
+    bg: I('us-map.gif'),
     crumbs: [{ label: 'Home', href: '/' }, { label: 'About', href: '/about' }, { label: 'Alliances' }],
   })}
   <div class="section">
-    <div class="img-frame reveal" style="max-width:680px;margin-bottom:50px"><img src="${I('2010/09/us_map.gif')}" alt="Map of IMA dojo locations" loading="lazy" /></div>
+    <div class="img-frame reveal" style="max-width:680px;margin-bottom:50px"><img src="${I('us-map.gif')}" alt="Map of IMA dojo locations" loading="lazy" /></div>
     <div class="grid-3">
       ${groups
         .map(
@@ -539,18 +542,18 @@ export function buildAffiliatedDojoPage() {
 // ═══════════════════════════════════════════════════════════════════════════════
 export function buildProgramsPage() {
   const programs = [
-    ['tiny-tigers', 'Tiny Tigers', 'Ages 4–5', 'Tiny Tigers classes are for our youngest students ages 4–5. The focus of these classes is showing proper respect and etiquette towards the dojo, our instructors, and the other students. Students learn balance, coordination, and basic karate movements through age-appropriate games and drills.', '2023/01/Tiny-Tigers-Class.jpg'],
-    ['little-dragons', 'Little Dragons', 'Ages 5–7', 'The Little Dragons class is designed for students ages 5–7. These classes teach students to control their emotions and to stay focused on tasks. Class time is spent playing warmup games and learning basic techniques — all while building confidence and discipline.', '2023/01/little-dragons.jpg'],
-    ['youth', 'Pre-Teen / Youth Class', 'Elementary & middle school', 'In the youth class, students focus on learning traditional Shotokan karate techniques and forms. Students learn and are expected to maintain proper etiquette around the dojo while developing strength, flexibility, and focus.', '2023/01/youth-class.jpg'],
-    ['adults', 'Adult / Teen Class', 'Ages 13+', 'Our adult program is designed for students of all levels from age 13 and up. Classes start with time for warm-up, stretching, conditioning, and basics practice. Class focus work will include kata (forms) and kumite (sparring), with individualized attention for every level.', '2023/01/adult-class.jpg'],
-    ['competition', 'Competition Team', 'Invite only', 'The IMA Competition Team is an invite-only group of dedicated karate practitioners who show the highest level of drive and commitment to the sport. The team travels to WKF tournaments nationally and internationally, with athletes routinely winning major tournaments and competing for spots on the US Olympic team.', '2023/01/2021-Team-Photo-in-Track-Suits.jpg'],
+    ['tiny-tigers', 'Tiny Tigers', 'Ages 4–5', 'Tiny Tigers classes are for our youngest students ages 4–5. The focus of these classes is showing proper respect and etiquette towards the dojo, our instructors, and the other students. Students learn balance, coordination, and basic karate movements through age-appropriate games and drills.', 'tiny-tigers-class.jpg'],
+    ['little-dragons', 'Little Dragons', 'Ages 5–7', 'The Little Dragons class is designed for students ages 5–7. These classes teach students to control their emotions and to stay focused on tasks. Class time is spent playing warmup games and learning basic techniques — all while building confidence and discipline.', 'little-dragons.jpg'],
+    ['youth', 'Pre-Teen / Youth Class', 'Elementary & middle school', 'In the youth class, students focus on learning traditional Shotokan karate techniques and forms. Students learn and are expected to maintain proper etiquette around the dojo while developing strength, flexibility, and focus.', 'youth-class.jpg'],
+    ['adults', 'Adult / Teen Class', 'Ages 13+', 'Our adult program is designed for students of all levels from age 13 and up. Classes start with time for warm-up, stretching, conditioning, and basics practice. Class focus work will include kata (forms) and kumite (sparring), with individualized attention for every level.', 'adult-class.jpg'],
+    ['competition', 'Competition Team', 'Invite only', 'The IMA Competition Team is an invite-only group of dedicated karate practitioners who show the highest level of drive and commitment to the sport. The team travels to WKF tournaments nationally and internationally, with athletes routinely winning major tournaments and competing for spots on the US Olympic team.', 'team-track-suits.jpg'],
   ];
   const content = `
   ${pageHero({
     eyebrow: 'Programs',
     title: 'Karate Programs',
     lead: 'Traditional and sport karate for every age and ability — from 4 years old to adult.',
-    bg: I('2023/01/Tiny-Tigers-Class.jpg'),
+    bg: I('tiny-tigers-class.jpg'),
     crumbs: [{ label: 'Home', href: '/' }, { label: 'Programs' }],
   })}
   ${programs
@@ -572,7 +575,7 @@ export function buildProgramsPage() {
     )
     .join('')}
   <section class="cta-band">
-    <div class="bg" style="background-image:url('${I('2022/12/Join.jpg')}')"></div>
+    <div class="bg" style="background-image:url('${I('join.jpg')}')"></div>
     <div class="inner reveal">
       <p class="eyebrow">Get Started</p>
       <h2>Your First Month + a Free Uniform</h2>
@@ -592,7 +595,7 @@ export function buildHowToJoinPage() {
     eyebrow: 'Join Us',
     title: 'How to Join',
     lead: 'Start your karate journey at IMA — your first class is on us.',
-    bg: I('2022/12/Join.jpg'),
+    bg: I('join.jpg'),
     crumbs: [{ label: 'Home', href: '/' }, { label: 'How to Join' }],
   })}
   <div class="section">
@@ -646,7 +649,7 @@ export function buildContactPage() {
     eyebrow: 'Contact',
     title: 'Contact Us',
     lead: 'We would love to hear from you!',
-    bg: I('2023/01/Lets-Connect-1-620x348.jpg'),
+    bg: I('lets-connect.jpg'),
     crumbs: [{ label: 'Home', href: '/' }, { label: 'Contact' }],
   })}
   <div class="section">
@@ -670,7 +673,7 @@ export function buildContactPage() {
           </div>
         </div>
         <div class="img-frame reveal" data-delay="120" style="margin-top:26px">
-          <img src="${I('2023/01/Lets-Connect-1-620x348.jpg')}" alt="Let’s connect — IMA Karate" loading="lazy" />
+          <img src="${I('lets-connect.jpg')}" alt="Let’s connect — IMA Karate" loading="lazy" />
         </div>
       </div>
       <form class="reveal" data-delay="90" id="contact-form" action="/contact/submit" method="post" style="background:#131313;border:1px solid #232327;border-radius:6px;padding:30px">

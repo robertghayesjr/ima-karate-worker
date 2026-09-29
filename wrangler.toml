@@ -2,6 +2,11 @@ name = "ima-karate-worker"
 main = "src/worker.js"
 compatibility_date = "2025-04-01"
 
+# Static assets — optimized site images served directly by Cloudflare's edge.
+# Requests that don't match a file fall through to the Worker.
+[assets]
+directory = "./assets"
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Non-secret environment variables
 # ─────────────────────────────────────────────────────────────────────────────

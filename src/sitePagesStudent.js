@@ -2,9 +2,9 @@
 //  Student Information pages. Copy follows imakarate.com.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { esc, IMG_ORIGIN, pageShell, pageHero } from './siteTheme.js';
+import { esc, IMG, pageShell, pageHero } from './siteTheme.js';
 
-const I = (path) => `${IMG_ORIGIN}/${path.replace(/^\//, '')}`;
+const I = (name) => `${IMG}/${name}`;
 const CRUMBS_STUDENT = [
   { label: 'Home', href: '/' },
   { label: 'Student Information', href: '/student-information' },
@@ -29,7 +29,6 @@ export function buildStudentInfoPage() {
     eyebrow: 'Student Information',
     title: 'Student Information',
     lead: 'Everything you need for your karate journey at IMA.',
-    bg: I('2011/01/talking_to_competitors.jpg'),
     crumbs: [{ label: 'Home', href: '/' }, { label: 'Student Information' }],
   })}
   <div class="section">
@@ -39,7 +38,7 @@ export function buildStudentInfoPage() {
         <p style="margin-top:24px"><a href="/belt-testing" class="btn-primary">Register for the Next Belt Test</a></p>
       </div>
       <div class="img-frame reveal" data-delay="120">
-        <img src="${I('2011/01/talking_to_competitors.jpg')}" alt="IMA instructors with competitors" loading="lazy" />
+        <img src="${I('talking-competitors.jpg')}" alt="IMA instructors with competitors" loading="lazy" />
       </div>
     </div>
   </div>
@@ -71,7 +70,6 @@ export function buildBenefitsKaratePage() {
     eyebrow: 'Student Information',
     title: 'Benefits of Karate Training',
     lead: 'A complete discipline — body, heart, and spirit.',
-    bg: I('2010/09/rewarding_effort.jpg'),
     crumbs: [...CRUMBS_STUDENT, { label: 'Benefits of Karate' }],
   })}
   <div class="section">
@@ -81,8 +79,8 @@ export function buildBenefitsKaratePage() {
         <p>Karate training at IMA is much more than just a physical experience, however. It is a complete discipline that also involves the heart and the spirit. It is through training in karate that one learns to respect others and oneself.</p>
         <p>The most important goal of IMA karate instructors and their students is to help one another develop a balance within themselves so that they may express their true nature — realizing their full potential as human beings.</p>
       </div>
-      <div class="img-frame reveal" data-delay="120">
-        <img src="${I('2010/09/rewarding_effort.jpg')}" alt="Rewarding effort in karate training" loading="lazy" />
+      <div class="img-frame natural reveal" data-delay="120" style="max-width:340px;margin:0 auto;background:#0d0d0f;padding:10px">
+        <img src="${I('rewarding-effort.jpg')}" alt="Rewarding effort in karate training" loading="lazy" />
       </div>
     </div>
   </div>
@@ -126,7 +124,6 @@ export function buildHistoryPrinciplesPage() {
     eyebrow: 'Student Information',
     title: 'History & Principles of Shotokan Karate',
     lead: 'From Gichin Funakoshi to the Japan Karate Association.',
-    bg: I('2010/12/funakoshi_small.jpg'),
     crumbs: [...CRUMBS_STUDENT, { label: 'History & Principles' }],
   })}
   <div class="section">
@@ -139,8 +136,8 @@ export function buildHistoryPrinciplesPage() {
         <p>It is upon these concepts that in 1948, the Japan Karate Association (JKA) was founded. The establishment of the JKA led the way to the spread of Shotokan karate throughout the world.</p>
         <p>It was through Master Masatoshi Nakayama’s vision that Shotokan has spread throughout the world, enriching many people’s lives in many countries.</p>
       </div>
-      <div class="img-frame reveal" data-delay="120" style="max-width:440px">
-        <img src="${I('2010/12/funakoshi_small.jpg')}" alt="Gichin Funakoshi, father of modern karate" loading="lazy" />
+      <div class="img-frame natural reveal" data-delay="120" style="max-width:260px;background:#0d0d0f;padding:10px">
+        <img src="${I('funakoshi.jpg')}" alt="Gichin Funakoshi, father of modern karate" loading="lazy" />
       </div>
     </div>
   </div>
@@ -195,7 +192,7 @@ export function buildClassSchedulePage() {
     eyebrow: 'Student Information',
     title: 'Class Schedule',
     lead: 'Six days a week at the Honbu Dojo in Louisville, Colorado.',
-    bg: I('2023/01/youth-class.jpg'),
+    bg: I('youth-class.jpg'),
     crumbs: [...CRUMBS_STUDENT, { label: 'Class Schedule' }],
   })}
   <div class="section">
@@ -229,26 +226,26 @@ export function buildClassSchedulePage() {
 // ═══════════════════════════════════════════════════════════════════════════════
 export function buildInstructorsPage() {
   const people = [
-    ['2023/02/Hanshi-465x620.jpg', 'Hanshi Cyrus Madani', 'Kudan · Chief Instructor', 'Founder and Chief Instructor of IMA. Began training in 1964 and has taught Shotokan karate in Louisville since 1990. Former PKF/WKF kata and kumite referee with the highest license.'],
-    ['2023/01/Fariba-Madani-1-465x620.jpg', 'Shihan Fariba Madani', 'Hachidan · Head Instructor', 'First national karate referee from Colorado and the first U.S. female referee at the Pan American level for both kata and kumite. World and Pan American referee council member.'],
-    ['2023/01/Michelle-Prud-1-465x620.jpg', 'Sensei Michelle Prud’Homme', 'Rokudan', 'Started with Hanshi at the rec center before the dojo was built, October 26, 1993. National Referee A license.'],
-    ['2023/01/Bob-Mccormick-465x620.jpg', 'Sensei Bob McCormick', 'Rokudan', 'Joined IMA Honbu dojo in 1996 and began teaching in 1997 while an orange belt. Valued the family atmosphere from his first visit.'],
-    ['2023/03/Sensei-Deborah-Keyek-Franssen-Godan.jpg', 'Sensei Deborah Keyek-Franssen', 'Godan', 'Studying with Hanshi since February 1999. Started at the YMCA in Lafayette with her two sons before moving to the Honbu dojo.'],
-    ['2023/01/Irina-Petra-465x620.jpg', 'Sensei Irina Petropavlovskikh', 'Yondan', 'Started at IMA in 2005 with her daughter, who is also a black belt. Born in Russia; came to the US for graduate studies.'],
-    ['2023/02/Kamran-2-465x620.jpg', 'Sensei Kamran Madani', 'Yondan · Head Coach', 'Bronze-medal winner at the 2011 Junior World Championships in Malaysia and Pan American medalist. IMA head coach and USA coach.'],
-    ['2023/01/David-Miller-465x620.jpg', 'Sensei David Miller', 'Yondan', 'Studying martial arts since 1988; training with Hanshi Madani for over 23 years.'],
-    ['2023/01/josh-schmidt-465x620.jpg', 'Sensei Josh Schmidt', 'Sandan', 'The very first black belt under Hanshi Madani at the Honbu Dojo. Has continued his training to the rank of Sandan.'],
-    ['2023/01/Keith-465x620.jpg', 'Sensei Keith Nakasato', 'Sandan', 'Training with Hanshi for 14 years. His wife and two children also hold black belts with IMA karate.'],
-    ['2023/01/Kelara-3-465x620.jpg', 'Sensei Kelara Madani', 'Sandan', 'Training at the Honbu dojo since she was 4 years old. Speaks three languages and is learning a fourth. National-level competitor.'],
-    ['2023/01/Place-holder-465x620.jpg', 'Senpai Philippe Lepercq', 'Senpai', 'Joined IMA in 2011 with his daughter. Began his martial arts experience in France, where he grew up.'],
-    ['2023/01/joy-hierlmaier-2-465x620.jpg', 'Sensei Joy Hierlmaier', 'Sandan', 'Former member of the IMA competition team with three national-level medals.'],
+    ['hanshi-portrait.jpg', 'Hanshi Cyrus Madani', 'Kudan · Chief Instructor', 'Founder and Chief Instructor of IMA. Began training in 1964 and has taught Shotokan karate in Louisville since 1990. Former PKF/WKF kata and kumite referee with the highest license.'],
+    ['fariba-portrait.jpg', 'Shihan Fariba Madani', 'Hachidan · Head Instructor', 'First national karate referee from Colorado and the first U.S. female referee at the Pan American level for both kata and kumite. World and Pan American referee council member.'],
+    ['inst-michelle.jpg', 'Sensei Michelle Prud’Homme', 'Rokudan', 'Started with Hanshi at the rec center before the dojo was built, October 26, 1993. National Referee A license.'],
+    ['inst-bob.jpg', 'Sensei Bob McCormick', 'Rokudan', 'Joined IMA Honbu dojo in 1996 and began teaching in 1997 while an orange belt. Valued the family atmosphere from his first visit.'],
+    ['inst-deborah.jpg', 'Sensei Deborah Keyek-Franssen', 'Godan', 'Studying with Hanshi since February 1999. Started at the YMCA in Lafayette with her two sons before moving to the Honbu dojo.'],
+    ['inst-irina.jpg', 'Sensei Irina Petropavlovskikh', 'Yondan', 'Started at IMA in 2005 with her daughter, who is also a black belt. Born in Russia; came to the US for graduate studies.'],
+    ['inst-kamran.jpg', 'Sensei Kamran Madani', 'Yondan · Head Coach', 'Bronze-medal winner at the 2011 Junior World Championships in Malaysia and Pan American medalist. IMA head coach and USA coach.'],
+    ['inst-david.jpg', 'Sensei David Miller', 'Yondan', 'Studying martial arts since 1988; training with Hanshi Madani for over 23 years.'],
+    ['inst-josh.jpg', 'Sensei Josh Schmidt', 'Sandan', 'The very first black belt under Hanshi Madani at the Honbu Dojo. Has continued his training to the rank of Sandan.'],
+    ['inst-keith.jpg', 'Sensei Keith Nakasato', 'Sandan', 'Training with Hanshi for 14 years. His wife and two children also hold black belts with IMA karate.'],
+    ['inst-kelara.jpg', 'Sensei Kelara Madani', 'Sandan', 'Training at the Honbu dojo since she was 4 years old. Speaks three languages and is learning a fourth. National-level competitor.'],
+    ['inst-philippe.jpg', 'Senpai Philippe Lepercq', 'Senpai', 'Joined IMA in 2011 with his daughter. Began his martial arts experience in France, where he grew up.'],
+    ['inst-joy.jpg', 'Sensei Joy Hierlmaier', 'Sandan', 'Former member of the IMA competition team with three national-level medals.'],
   ];
   const content = `
   ${pageHero({
     eyebrow: 'Student Information',
     title: 'Our Instructors',
     lead: 'World-recognized instructors with decades of combined experience.',
-    bg: I('2023/02/Hanshi-465x620.jpg'),
+    bg: I('hanshi-portrait.jpg'),
     crumbs: [...CRUMBS_STUDENT, { label: 'Our Instructors' }],
   })}
   <div class="section">
@@ -301,7 +298,6 @@ export function buildBeltTestingPage() {
     eyebrow: 'Student Information',
     title: 'Belt Testing Guidelines',
     lead: 'An important step in the study of karate.',
-    bg: I('2023/02/tiny-tiger-photo.jpg'),
     crumbs: [...CRUMBS_STUDENT, { label: 'Belt Testing Guidelines' }],
   })}
   <div class="section">
@@ -367,7 +363,7 @@ export function buildRulesCompetitionPage() {
     eyebrow: 'Student Information',
     title: 'Rules of Competition',
     lead: 'Competition rules from the world’s leading karate governing bodies.',
-    bg: I('2010/10/IMA-Comp-Team-Jan-2014-1-620x483.jpg'),
+    bg: I('comp-team-2014.jpg'),
     crumbs: [...CRUMBS_STUDENT, { label: 'Rules of Competition' }],
   })}
   <div class="section">
@@ -380,7 +376,7 @@ export function buildRulesCompetitionPage() {
         </ul>
       </div>
       <div class="img-frame reveal" data-delay="120">
-        <img src="${I('2010/10/IMA-Comp-Team-Jan-2014-1-620x483.jpg')}" alt="IMA Competition Team, January 2014" loading="lazy" />
+        <img src="${I('comp-team-2014.jpg')}" alt="IMA Competition Team, January 2014" loading="lazy" />
       </div>
     </div>
   </div>`;
@@ -432,12 +428,11 @@ export function buildKatasPage() {
     eyebrow: 'Student Information',
     title: 'List of Katas',
     lead: 'The katas of Shotokan karate, from Taikyoku to Unsu.',
-    bg: I('2010/10/keith_kubodo_kata.jpg'),
     crumbs: [...CRUMBS_STUDENT, { label: 'List of Katas' }],
   })}
   <div class="section" style="max-width:900px">
-    <div class="img-frame reveal" style="max-width:420px;margin-bottom:44px">
-      <img src="${I('2010/10/keith_kubodo_kata.jpg')}" alt="Kobudo kata demonstration" loading="lazy" />
+    <div class="img-frame natural reveal" style="max-width:240px;margin:0 auto 44px;background:#0d0d0f;padding:10px">
+      <img src="${I('kubodo-kata.jpg')}" alt="Kobudo kata demonstration" loading="lazy" />
     </div>
     ${groups
       .map(
@@ -561,7 +556,6 @@ export function buildDictionaryPage() {
     eyebrow: 'Student Information',
     title: 'Karate Dictionary',
     lead: 'Japanese terminology for techniques, stances, and commands — searchable.',
-    bg: I('2010/10/open_book.jpg'),
     crumbs: [...CRUMBS_STUDENT, { label: 'Karate Dictionary' }],
   })}
   <div class="section" style="max-width:1000px">
