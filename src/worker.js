@@ -23,6 +23,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { handleBeltTestingRoutes } from './beltRoutes.js';
+import { handleSiteRoutes } from './siteRoutes.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -41,7 +42,11 @@ export default {
       return json({ ok: true, worker: 'ima-karate-worker', v: 2, origin: env.ORIGIN });
     }
 
-    // ── Belt-testing flow (page + JSON API + admin route) ───────────────
+    // ── Rebuilt site pages (new theme, served directly by the Worker) ────────
+    const siteRes = await handleSiteRoutes(request, env, url);
+    if (siteRes) return siteRes;
+
+    // ── Belt-testing flow (page + JSON API + admin route) ───────────────────
     if (url.pathname === '/belt-testing' ||
         url.pathname.startsWith('/belt-testing/') ||
         url.pathname === '/__admin/belt-testing') {

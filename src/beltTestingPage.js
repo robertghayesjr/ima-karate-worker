@@ -70,7 +70,7 @@ export function buildBeltTestingPage(cfg) {
       <a href="https://www.instagram.com/imakarate" aria-label="Instagram">ig</a>
       <a href="https://www.youtube.com/@imakarate" aria-label="YouTube">yt</a>
     </div>
-    <a href="/sign-up" class="topbar-cta">CLAIM A FREE TRIAL CLASS</a>
+    <a href="/how-to-join" class="topbar-cta">CLAIM A FREE TRIAL CLASS</a>
   </div>
 
   <header class="site-nav">
@@ -78,11 +78,11 @@ export function buildBeltTestingPage(cfg) {
       <img src="https://cdn.prod.website-files.com/67294bbae93e819099f356c2/672953cd9cf8c751045fb537_Logo.png" alt="IMA Karate — Home" />
     </a>
     <nav>
-      <a href="/#programs">PROGRAMS</a>
-      <a href="/#schedule">STUDENT INFORMATION</a>
-      <a href="/#news">NEWS &amp; EVENTS</a>
+      <a href="/programs">PROGRAMS</a>
+      <a href="/student-information">STUDENT INFORMATION</a>
+      <a href="/news-events">NEWS &amp; EVENTS</a>
       <a href="/login" class="btn-outline">LOGIN</a>
-      <a href="/sign-up" class="btn-primary">JOIN IMA</a>
+      <a href="/how-to-join" class="btn-primary">JOIN IMA</a>
     </nav>
   </header>
 
