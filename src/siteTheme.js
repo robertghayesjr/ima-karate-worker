@@ -207,13 +207,15 @@ h2.sec{font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:clamp(
 .img-frame.natural img{aspect-ratio:auto;width:auto;max-width:100%;margin:0 auto}
 
 /* overlapping portrait pair — modern collage */
-.portrait-pair{position:relative;padding:6% 6% 6% 22%}
-.portrait-pair .p1{width:68%;border-radius:8px;overflow:hidden;position:relative;border:1px solid #26262b;box-shadow:0 24px 60px rgba(0,0,0,.5);z-index:1}
-.portrait-pair .p2{width:58%;position:absolute;top:32%;left:0;border-radius:8px;overflow:hidden;border:1px solid #26262b;box-shadow:0 24px 60px rgba(0,0,0,.6);z-index:2;transition:transform .5s cubic-bezier(.2,.7,.3,1)}
-.portrait-pair:hover .p2{transform:translate(-4%,-5%) rotate(-1.5deg)}
+.portrait-pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.portrait-pair .p1,.portrait-pair .p2{position:relative;border-radius:10px;overflow:hidden;border:1px solid #26262b;box-shadow:0 24px 60px rgba(0,0,0,.5);transition:transform .5s cubic-bezier(.2,.7,.3,1),box-shadow .4s,border-color .3s}
+.portrait-pair .p1{z-index:1}
+.portrait-pair .p2{margin-top:11%;z-index:2}
+.portrait-pair .p1:hover,.portrait-pair .p2:hover{transform:translateY(-6px);box-shadow:0 30px 72px rgba(0,0,0,.6);border-color:rgba(200,16,46,.45)}
 .portrait-pair img{width:100%;display:block;aspect-ratio:3/4;object-fit:cover}
-.portrait-pair .pair-badge{position:absolute;bottom:5%;right:0;z-index:3;background:rgba(13,13,15,.9);backdrop-filter:blur(8px);border:1px solid #2b2b30;border-left:3px solid #c8102e;padding:12px 18px;border-radius:6px;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.1em;font-size:.72rem;color:#e8e8ea}
-.portrait-pair .pair-badge b{display:block;color:#d4a24a;font-size:.95rem;letter-spacing:.06em}
+.portrait-pair .p-cap{position:absolute;left:0;right:0;bottom:0;padding:44px 16px 14px;background:linear-gradient(180deg,transparent,rgba(5,5,6,.92) 78%);font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.08em;font-size:.72rem;color:#c9c9cd}
+.portrait-pair .p-cap b{display:block;color:#d4a24a;font-size:.92rem;letter-spacing:.05em;margin-bottom:2px}
+@media(max-width:640px){.portrait-pair .p2{margin-top:0}}
 
 .card{position:relative;background:linear-gradient(180deg,#151517,#111113);border:1px solid #242429;border-radius:8px;overflow:hidden;transition:transform .3s cubic-bezier(.2,.7,.3,1),border-color .3s,box-shadow .35s;text-decoration:none;display:block}
 .card:hover{transform:translateY(-6px);border-color:rgba(200,16,46,.5);box-shadow:0 22px 52px rgba(0,0,0,.55),0 0 0 1px rgba(200,16,46,.25)}

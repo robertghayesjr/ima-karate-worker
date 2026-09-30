@@ -47,9 +47,14 @@ export function buildHomePage() {
         <p style="margin-top:22px"><a href="/about" class="card-link">Learn more about IMA Karate →</a></p>
       </div>
       <div class="portrait-pair reveal" data-delay="120">
-          <div class="p1"><img src="${I('hanshi-portrait.jpg')}" alt="Hanshi Cyrus Madani, Founder and Chief Instructor" loading="lazy" /></div>
-          <div class="p2"><img src="${I('fariba-portrait.jpg')}" alt="Shihan Fariba Madani, Head Instructor" loading="lazy" /></div>
-          <div class="pair-badge"><b>Hanshi & Shihan Madani</b>Founders, IMA Karate</div>
+          <div class="p1">
+            <img src="${I('hanshi-portrait.jpg')}" alt="Hanshi Cyrus Madani, Founder and Chief Instructor" loading="lazy" />
+            <div class="p-cap"><b>Hanshi Cyrus Madani</b>Founder & Chief Instructor</div>
+          </div>
+          <div class="p2">
+            <img src="${I('fariba-portrait.jpg')}" alt="Shihan Fariba Madani, Head Instructor" loading="lazy" />
+            <div class="p-cap"><b>Shihan Fariba Madani</b>Head Instructor</div>
+          </div>
         </div>
     </div>
   </div>
@@ -220,9 +225,14 @@ export function buildAboutPage() {
         <p style="margin-top:24px"><a href="/how-to-join" class="btn-primary">Join IMA</a></p>
       </div>
       <div class="portrait-pair reveal" data-delay="120">
-        <div class="p1"><img src="${I('hanshi-portrait.jpg')}" alt="Hanshi Cyrus Madani" loading="lazy" /></div>
-        <div class="p2"><img src="${I('fariba-portrait.jpg')}" alt="Shihan Fariba Madani" loading="lazy" /></div>
-        <div class="pair-badge"><b>Hanshi & Shihan Madani</b>Founders, IMA Karate</div>
+        <div class="p1">
+          <img src="${I('hanshi-portrait.jpg')}" alt="Hanshi Cyrus Madani, Founder and Chief Instructor" loading="lazy" />
+          <div class="p-cap"><b>Hanshi Cyrus Madani</b>Founder & Chief Instructor</div>
+        </div>
+        <div class="p2">
+          <img src="${I('fariba-portrait.jpg')}" alt="Shihan Fariba Madani, Head Instructor" loading="lazy" />
+          <div class="p-cap"><b>Shihan Fariba Madani</b>Head Instructor</div>
+        </div>
       </div>
     </div>
   </div>
