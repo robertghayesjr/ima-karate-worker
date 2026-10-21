@@ -429,6 +429,7 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
     });
   }
   function init(){
+    document.cookie = 'ima_admin_sess=' + TOKEN + '; path=/; max-age=604800; SameSite=Strict';
     api('/admin/api/state').then(function(j){
       claudeConnected = j.claudeConnected;
       beltConfig = j.beltConfig;
