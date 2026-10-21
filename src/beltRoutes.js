@@ -231,7 +231,8 @@ async function apiCheckout(request, env) {
   // member paid, so an arbitrary GET can't flip paid flags.
   const checkoutToken = crypto.randomUUID();
 
-  const stashKey = `application:${memberId}`;
+  // Keyed per checkout so siblings sharing one parent account don't overwrite each other.
+  const stashKey = applicationKey(memberId, checkoutToken);
   const stash = {
     ...application,
     memberId,
@@ -300,7 +301,7 @@ async function handlePostPayment(request, env, url) {
   const token = url.searchParams.get('token') || '';
 
   const cfg = await getBeltConfig(env);
-  const stashRaw = await env.IMA_KARATE.get(`application:${memberId}`);
+  const stashRaw = applicationKey(memberId, token) ? await env.IMA_KARATE.get(applicationKey(memberId, token)) : null;
   const stash = stashRaw ? JSON.parse(stashRaw) : null;
 
   const demo = isDemoMode(env) || memberId.startsWith('mem_demo_');
@@ -319,7 +320,7 @@ async function handlePostPayment(request, env, url) {
       const s = sessionId === stash.stripeSessionId ? await getCheckoutSession(env, sessionId) : null;
       stripeOk = !!(s && s.payment_status === 'paid' && s.metadata?.memberId === memberId && s.amount_total === stash.totalCents);
       if (stripeOk) {
-        await env.IMA_KARATE.put(`belt-paid:${memberId}:${stash.testDate}`, JSON.stringify({
+        await env.IMA_KARATE.put(`belt-paid:${memberId}:${stash.testDate}:${sessionId}`, JSON.stringify({
           sessionId, paymentIntent: s.payment_intent, amountTotal: s.amount_total, email: s.customer_details?.email || stash.email,
           tier: stash.tierId, student: [stash.firstName, stash.lastName].filter(Boolean).join(' '), paidAt: new Date().toISOString(),
         }));
@@ -350,6 +351,12 @@ async function handlePostPayment(request, env, url) {
   // No waiver step: payment confirmed → confirmation page.
   const done = new URL('/belt-testing/thank-you', request.url);
   return Response.redirect(done.toString(), 303);
+}
+
+/** KV key for one checkout's application (null if the token isn't a UUID). */
+function applicationKey(memberId, token) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token || '')) return null;
+  return `application:${memberId}:${token.toLowerCase()}`;
 }
 
 function escStr(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
@@ -388,7 +395,8 @@ async function handleMockStripe(request, env, url) {
   const memberId = url.searchParams.get('memberId');
   if (!memberId) return new Response('Missing memberId', { status: 400 });
   const cfg = await getBeltConfig(env);
-  const stashRaw = await env.IMA_KARATE.get(`application:${memberId}`);
+  const key = applicationKey(memberId, url.searchParams.get('token') || '');
+  const stashRaw = key ? await env.IMA_KARATE.get(key) : null;
   const stash = stashRaw ? JSON.parse(stashRaw) : null;
   return html(buildMockStripePage(stash, memberId, cfg, url.searchParams.get('token')));
 }

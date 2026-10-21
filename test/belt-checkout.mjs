@@ -43,13 +43,13 @@ const exp = computeBeltAmounts('white_yellow', { wantsManual: true, isLate: fals
 ok(names.length === 3 && names[0].startsWith('Kyu belt test:') && names[1] === 'Student progress manual=3000' && names[2] === `Card processing fee (3%)=${exp.processingFeeCents}`, 'line items: test, manual, 3% fee (' + names.join(', ') + ')');
 ok(f.get('payment_method_types[0]') === 'card' && f.get('metadata[source]') === 'ima-belt-test' && f.get('customer_email') === 's@x.com', 'card only, metadata, email');
 ok(f.get('success_url').includes('session_id={CHECKOUT_SESSION_ID}') && created[0].headers['Idempotency-Key'], 'success url placeholder + idempotency');
-const stash = JSON.parse(kv.get('application:mem_real1'));
+const stash = JSON.parse([...kv.entries()].find(([k]) => k.startsWith('application:mem_real1:'))[1]);
 ok(stash.totalCents === exp.totalCents && stash.stripeSessionId === 'cs_test_1', 'client amounts ignored; session stored');
 
 const pp = (q) => call('GET', '/belt-testing/post-payment?' + q);
 ok((await pp(`memberId=mem_real1&token=${stash.checkoutToken}&session_id=cs_test_1`)).status === 402, 'unpaid session: not confirmed');
 sessions.get('cs_test_1').payment_status = 'paid';
-ok((await pp(`memberId=mem_real1&token=bad&session_id=cs_test_1`)).status === 303 && !kv.get('belt-paid:mem_real1:2099-01-10'), 'bad token: no paid record');
+ok((await pp(`memberId=mem_real1&token=bad&session_id=cs_test_1`)).status === 303 && ![...kv.keys()].some((k) => k.startsWith('belt-paid:')), 'bad token: no paid record');
 sessions.set('cs_test_9', { id: 'cs_test_9', payment_status: 'paid', amount_total: exp.totalCents, metadata: { memberId: 'mem_real1' } });
 ok((await pp(`memberId=mem_real1&token=${stash.checkoutToken}&session_id=cs_test_9`)).status === 402, 'someone else\'s paid session rejected');
 sessions.get('cs_test_1').amount_total = 100;
@@ -57,10 +57,15 @@ ok((await pp(`memberId=mem_real1&token=${stash.checkoutToken}&session_id=cs_test
 sessions.get('cs_test_1').amount_total = exp.totalCents;
 const good = await pp(`memberId=mem_real1&token=${stash.checkoutToken}&session_id=cs_test_1`);
 ok(good.status === 303 && good.headers.get('Location').endsWith('/belt-testing/thank-you'), 'paid: redirect to thank-you');
-const rec = JSON.parse(kv.get('belt-paid:mem_real1:2099-01-10') || 'null');
+const rec = JSON.parse(kv.get('belt-paid:mem_real1:2099-01-10:cs_test_1') || 'null');
 ok(rec && rec.amountTotal === exp.totalCents && rec.student === 'Sam Lee', 'paid record stored');
 
 const env2 = { ...env, STRIPE_SECRET_KEY: '' };
 const r2 = await handleBeltTestingRoutes(new Request('https://imakarate.com/belt-testing/checkout', { method: 'POST', body: JSON.stringify({ memberId: 'm', application: { tier: 'white_yellow' } }) }), env2, new URL('https://imakarate.com/belt-testing/checkout'));
 ok(r2.status === 503, 'no Stripe key: refuses (no mock fallback)');
+// siblings: two checkouts on one parent account keep separate applications
+await call('POST', '/belt-testing/checkout', { memberId: 'mem_parent', application: { tier: 'tiny_tiger', email: 'p@x.com', firstName: 'Kid', lastName: 'One' } });
+await call('POST', '/belt-testing/checkout', { memberId: 'mem_parent', application: { tier: 'white_yellow', email: 'p@x.com', firstName: 'Kid', lastName: 'Two' } });
+const sib = [...kv.entries()].filter(([k]) => k.startsWith('application:mem_parent:')).map(([, v]) => JSON.parse(v).firstName + ' ' + JSON.parse(v).lastName).sort();
+ok(sib.length === 2 && sib[0] === 'Kid One' && sib[1] === 'Kid Two', 'siblings on one account keep separate applications');
 console.log('\n' + fails + ' failures'); process.exit(fails ? 1 : 0);
