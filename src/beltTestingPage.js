@@ -149,7 +149,13 @@ export function buildBeltTestingPage(cfg) {
         Payment goes through our secure processor.
       </p>
 
-      <form id="bt-form" novalidate>
+      ${cfg.registrationOpen === false ? `<div class="reg-paused" style="border:1px solid rgba(212,162,74,.45);border-radius:14px;padding:28px;margin-top:18px;background:rgba(212,162,74,.06)">
+        <h3 style="margin:0 0 8px">Online registration opens soon</h3>
+        <p style="margin:0">To sign up for the ${esc(cfg.testDateDisplay)} test now, call
+        <a href="tel:+13036650339">${esc(cfg.phone)}</a> or email
+        <a href="mailto:${esc(cfg.email)}">${esc(cfg.email)}</a>.</p>
+      </div>` : ''}
+      <form id="bt-form" novalidate${cfg.registrationOpen === false ? ' hidden style="display:none"' : ''}>
         <fieldset class="card">
           <legend>Choose your test</legend>
           <div class="tiers">
@@ -210,9 +216,10 @@ export function buildBeltTestingPage(cfg) {
             <div><span>Base fee</span><b id="bt-base">—</b></div>
             <div><span>Progress Manual</span><b id="bt-manual">—</b></div>
             <div class="late" id="bt-late-row"><span>Late fee (past Thursday cutoff)</span><b id="bt-late">—</b></div>
+            <div><span>Card processing fee (${esc(String(cfg.ccSurchargePct))}%)</span><b id="bt-fee">—</b></div>
             <div class="total"><span>Total</span><b id="bt-total">—</b></div>
           </div>
-          <p class="fine">Credit-card payments include a 3% processing surcharge automatically added at checkout by Stripe. No application is accepted on the testing day.</p>
+          <p class="fine">A ${esc(String(cfg.ccSurchargePct))}% card processing fee is added as its own line to cover card processing costs. No application is accepted on the testing day.</p>
         </fieldset>
 
         <div class="cta-row">
@@ -404,7 +411,9 @@ const PAGE_JS = `
     document.getElementById('bt-manual').textContent = manual ? fmt(manual) : '—';
     document.getElementById('bt-late').textContent = late ? fmt(late) : '—';
     document.getElementById('bt-late-row').classList.toggle('show', sel.isLate);
-    document.getElementById('bt-total').textContent = base ? fmt(base + manual + late) : '—';
+    var fee = Math.round((base + manual + late) * (Number(cfg.ccSurchargePct) || 0) / 100);
+    document.getElementById('bt-fee').textContent = base ? fmt(fee) : '—';
+    document.getElementById('bt-total').textContent = base ? fmt(base + manual + late + fee) : '—';
   }
   form.addEventListener('change', updateSummary);
   form.addEventListener('input', updateSummary);
@@ -435,7 +444,8 @@ const PAGE_JS = `
     obj.baseCents = sel.tier ? sel.tier.priceCents : 0;
     obj.manualCents = (sel.wantsManual && sel.tier && sel.tier.id !== 'brown') ? cfg.manualAddonCents : 0;
     obj.lateCents = sel.isLate ? cfg.lateFeeCents : 0;
-    obj.totalCents = obj.baseCents + obj.manualCents + obj.lateCents;
+    obj.processingFeeCents = Math.round((obj.baseCents + obj.manualCents + obj.lateCents) * (Number(cfg.ccSurchargePct) || 0) / 100);
+    obj.totalCents = obj.baseCents + obj.manualCents + obj.lateCents + obj.processingFeeCents;
     obj.tierLabel = sel.tier ? sel.tier.label : '';
     obj.testDate = cfg.testDate;
     obj.testDateDisplay = cfg.testDateDisplay;

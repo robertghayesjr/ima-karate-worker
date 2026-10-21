@@ -19,7 +19,8 @@ import {
   getPublishedDoc, getDraftDoc, saveDraft, discardDraft, publishDraft,
   publishDoc, restoreRevision, listRevisions, getRevisionDoc, validateDoc,
 } from './contentDocs.js';
-import { getBeltConfig, updateBeltConfig } from './beltConfig.js';
+import { getBeltConfig, updateBeltConfig, computeBeltAmounts, findTier } from './beltConfig.js';
+import { createBeltCheckoutSession, getCheckoutLineItems, expireCheckoutSession } from './stripe.js';
 import { buildAdminApp } from './adminApp.js';
 import { applySiteSettings, SOCIAL_ICONS } from './siteSettings.js';
 import { buildHomePage } from './sitePagesMain.js';
@@ -231,6 +232,35 @@ export async function handleAdminRoutes(request, env, url) {
       account: r.ok ? { id: j.id, name: j.business_profile?.name || j.settings?.dashboard?.display_name || '', country: j.country, chargesEnabled: j.charges_enabled } : null });
   }
 
+  // Memberstack key check (sign-up creates members through it)
+  if (p === '/admin/api/memberstack/status' && request.method === 'GET') {
+    const key = env.MEMBERSTACK_SECRET_KEY || '';
+    if (!key) return json({ configured: false });
+    const r = await fetch('https://admin.memberstack.com/members?limit=1', { headers: { 'X-API-KEY': key } });
+    const j = await r.json().catch(() => ({}));
+    return json({ configured: true, mode: key.startsWith('sk_sb_') ? 'test' : key.startsWith('sk_') ? 'live' : 'unknown', ok: r.ok, status: r.status, totalMembers: j.totalCount ?? null, error: r.ok ? null : (j.message || j.error || null) });
+  }
+
+  // Stripe checkout dry run: create a real session (no charge), read back its
+  // line items, then expire it so it can never be paid.
+  if (p === '/admin/api/stripe/test-checkout' && request.method === 'POST') {
+    try {
+      const cfg = await getBeltConfig(env);
+      const tier = findTier('white_yellow') || findTier('tiny_tiger');
+      const amounts = computeBeltAmounts(tier.id, { wantsManual: true, isLate: false }, cfg);
+      const origin = new URL(request.url).origin;
+      const s = await createBeltCheckoutSession(env, {
+        amounts, tierLabel: tier.label, feePct: amounts.processingFeePct, email: 'test@example.com', memberId: 'admin-dry-run',
+        studentName: 'Dry Run (expired)', testDate: cfg.testDate, tierId: tier.id,
+        successUrl: `${origin}/belt-testing/post-payment?memberId=admin-dry-run&session_id={CHECKOUT_SESSION_ID}`, cancelUrl: `${origin}/belt-testing`,
+      });
+      const li = await getCheckoutLineItems(env, s.id);
+      const exp = await expireCheckoutSession(env, s.id);
+      return json({ ok: true, livemode: s.livemode, sessionStatus: exp.status, amountTotal: s.amount_total, expected: amounts,
+        lineItems: (li.data || []).map((x) => ({ name: x.description, cents: x.amount_total })), successUrl: s.success_url });
+    } catch (e) { return json({ ok: false, error: e.message }, 502); }
+  }
+
   // Belt config (test dates, fees, location) — replaces the old token-based admin API for humans
   if (p === '/admin/api/belt-config' && request.method === 'GET') {
     return json(await getBeltConfig(env));
@@ -238,6 +268,7 @@ export async function handleAdminRoutes(request, env, url) {
   if (p === '/admin/api/belt-config' && request.method === 'PUT') {
     const patch = await request.json().catch(() => null);
     if (!patch || typeof patch !== 'object') return json({ error: 'Invalid JSON' }, 400);
+    if ('registrationOpen' in patch && typeof patch.registrationOpen !== 'boolean') return json({ error: 'registrationOpen must be true or false' }, 400);
     const updated = await updateBeltConfig(env, patch);
     return json({ ok: true, config: updated });
   }

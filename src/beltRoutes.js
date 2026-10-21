@@ -8,7 +8,7 @@ import {
   BELT_TIERS,
   findTier,
   testingTimeFor,
-  computeTotalCents,
+  computeBeltAmounts,
   isLateNow,
 } from './beltConfig.js';
 import {
@@ -20,6 +20,7 @@ import {
 import { buildBeltTestingPage } from './beltTestingPage.js';
 import { buildBeltTestThankYou } from './beltThankYou.js';
 import { buildMockStripePage } from './beltMockPages.js';
+import { createBeltCheckoutSession, getCheckoutSession } from './stripe.js';
 
 function isDemoMode(env) {
   return env.DEMO_MODE === '1' || env.DEMO_MODE === 'true';
@@ -150,7 +151,16 @@ async function apiLookup(request, env) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  POST /belt-testing/signup — create a Memberstack member on the fly.
 // ─────────────────────────────────────────────────────────────────────────────
+async function registrationPaused(env) {
+  const cfg = await getBeltConfig(env);
+  return cfg.registrationOpen === false
+    ? json({ error: 'Online registration is paused. Please call or email the dojo to sign up.' }, 403)
+    : null;
+}
+
 async function apiSignup(request, env) {
+  const paused = await registrationPaused(env);
+  if (paused) return paused;
   let body;
   try { body = await request.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
   const { email, password, firstName, lastName, phone } = body || {};
@@ -195,6 +205,8 @@ async function apiSignup(request, env) {
 //  configured for it (or we can set it up as a separate line item later).
 // ─────────────────────────────────────────────────────────────────────────────
 async function apiCheckout(request, env) {
+  const paused = await registrationPaused(env);
+  if (paused) return paused;
   let body;
   try { body = await request.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
   const { memberId, application } = body || {};
@@ -203,19 +215,9 @@ async function apiCheckout(request, env) {
   const tier = findTier(application.tier);
   if (!tier) return json({ error: 'Unknown tier' }, 400);
 
-  const planId = env[tier.planEnv];
-  const planUnset = !planId || planId.startsWith('pln_replace_');
   const demo = isDemoMode(env);
-
-  // HARDENING: when demo mode is OFF, a missing plan ID must NOT silently
-  // fall back to the mock checkout — that would let production payments
-  // bypass Stripe. Fail loudly instead.
-  if (!demo && planUnset) {
-    console.error(`Belt-testing checkout: plan ID missing for tier ${tier.id} (env ${tier.planEnv})`);
-    return json({
-      error: 'Payment plan for this belt tier is not configured yet. Please contact the dojo at (303) 665-0339 to complete your registration.',
-      code: 'plan_not_configured',
-    }, 503);
+  if (!demo && !env.STRIPE_SECRET_KEY) {
+    return json({ error: 'Online payment is not set up yet. Please contact the dojo at (303) 665-0339 to complete your registration.', code: 'stripe_not_configured' }, 503);
   }
 
   // Persist application to KV so the /post-payment step can retrieve it.
@@ -223,16 +225,7 @@ async function apiCheckout(request, env) {
   // and the KV config — client-supplied amounts are never trusted.
   const cfg = await getBeltConfig(env);
   const serverIsLate = isLateNow(cfg);
-  const serverAmounts = {
-    baseCents: tier.priceCents,
-    manualCents: application.wantsManual && tier.id !== 'brown' ? cfg.manualAddonCents : 0,
-    lateCents: serverIsLate ? cfg.lateFeeCents : 0,
-  };
-  serverAmounts.totalCents = computeTotalCents(tier.id, {
-    wantsManual: application.wantsManual,
-    isLate: serverIsLate,
-    payByCreditCard: application.payByCreditCard,
-  }, cfg);
+  const serverAmounts = computeBeltAmounts(tier.id, { wantsManual: application.wantsManual, isLate: serverIsLate }, cfg);
 
   // One-time checkout token — /post-payment must present this to mark the
   // member paid, so an arbitrary GET can't flip paid flags.
@@ -276,22 +269,24 @@ async function apiCheckout(request, env) {
     return json({ checkoutUrl: mockUrl.toString(), demo: true });
   }
 
-  // Memberstack Stripe Checkout URL format for one-time plans:
-  //   https://checkout.memberstack.com/<plan-id>?memberId=<id>&successUrl=...&cancelUrl=...
-  // Docs: https://docs.memberstack.com/hc/en-us/articles/16452862181147
-  const successUrl = new URL('/belt-testing/post-payment', request.url);
-  successUrl.searchParams.set('memberId', memberId);
-  successUrl.searchParams.set('planId', planId);
-  successUrl.searchParams.set('token', checkoutToken);
-  const cancelUrl = new URL('/belt-testing', request.url);
-  cancelUrl.searchParams.set('cancel', '1');
-
-  const checkoutUrl = `https://checkout.memberstack.com/${planId}` +
-    `?memberId=${encodeURIComponent(memberId)}` +
-    `&successUrl=${encodeURIComponent(successUrl.toString())}` +
-    `&cancelUrl=${encodeURIComponent(cancelUrl.toString())}`;
-
-  return json({ checkoutUrl });
+  // Real Stripe Checkout: every charge is its own line item.
+  const origin = new URL(request.url).origin;
+  const successUrl = `${origin}/belt-testing/post-payment?memberId=${encodeURIComponent(memberId)}&token=${checkoutToken}&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${origin}/belt-testing?cancel=1#register`;
+  const studentName = [application.firstName, application.lastName].filter(Boolean).join(' ') || application.email || memberId;
+  try {
+    const session = await createBeltCheckoutSession(env, {
+      amounts: serverAmounts, tierLabel: tier.label, feePct: serverAmounts.processingFeePct,
+      email: application.email, memberId, studentName, testDate: cfg.testDate, tierId: tier.id,
+      successUrl, cancelUrl, idempotencyKey: checkoutToken,
+    });
+    stash.stripeSessionId = session.id;
+    await env.IMA_KARATE.put(stashKey, JSON.stringify(stash), { expirationTtl: 60 * 60 * 24 * 7 });
+    return json({ checkoutUrl: session.url });
+  } catch (e) {
+    console.error('Stripe checkout failed:', e.message);
+    return json({ error: 'We could not start the payment. Please try again, or call the dojo at (303) 665-0339.' }, 502);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -314,7 +309,34 @@ async function handlePostPayment(request, env, url) {
   // from our own checkout URL is presented — an arbitrary GET (or a stale
   // bookmark) can no longer flip the paid flag.
   const tokenOk = !!(stash?.checkoutToken && token && stash.checkoutToken === token);
-  const markPaid = tokenOk && canWriteMember(env, memberId);
+
+  // Real payments: ask Stripe. Paid only if the session is ours, for this
+  // member, fully paid, and for exactly the server-computed total.
+  let stripeOk = demo;
+  if (!demo && tokenOk) {
+    const sessionId = url.searchParams.get('session_id') || '';
+    try {
+      const s = sessionId === stash.stripeSessionId ? await getCheckoutSession(env, sessionId) : null;
+      stripeOk = !!(s && s.payment_status === 'paid' && s.metadata?.memberId === memberId && s.amount_total === stash.totalCents);
+      if (stripeOk) {
+        await env.IMA_KARATE.put(`belt-paid:${memberId}:${stash.testDate}`, JSON.stringify({
+          sessionId, paymentIntent: s.payment_intent, amountTotal: s.amount_total, email: s.customer_details?.email || stash.email,
+          tier: stash.tierId, student: [stash.firstName, stash.lastName].filter(Boolean).join(' '), paidAt: new Date().toISOString(),
+        }));
+      } else {
+        console.warn(`post-payment: Stripe did not confirm payment for ${memberId} (${sessionId})`);
+      }
+    } catch (e) {
+      console.warn('post-payment: Stripe lookup failed:', e.message);
+    }
+    if (!stripeOk) {
+      return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payment not confirmed</title>
+<body style="background:#0a0a0b;color:#f4f4f5;font-family:Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0"><div style="max-width:520px;padding:32px;text-align:center">
+<h1 style="font-size:1.4rem">We couldn't confirm your payment yet</h1><p style="color:#bbb">If you were charged, you're all set and the dojo will confirm by email. Questions? Call ${escStr(cfg.phone)} or email ${escStr(cfg.email)}.</p>
+<p><a href="/belt-testing" style="color:#d4a24a">Back to belt testing</a></p></div></body>`, { status: 402, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+    }
+  }
+  const markPaid = tokenOk && stripeOk && canWriteMember(env, memberId);
   if (markPaid) {
     try {
       await recordBeltTestProgress(env, memberId, { paid: true, testDate: cfg.testDate });

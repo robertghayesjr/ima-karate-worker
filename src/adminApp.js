@@ -448,6 +448,7 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
     body.innerHTML =
       '<div class="doc-head"><h2>Belt Test Settings</h2><span class="badge published">Live config</span></div>' +
       '<div class="notice">These settings drive the belt-testing pages and checkout — dates, fees, and location.</div>' +
+      '<div class="rev-item" style="margin-bottom:14px"><label style="display:flex;gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="cf-open"' + (c.registrationOpen === false ? '' : ' checked') + ' /> <span>Online registration open</span></label><span class="help">' + (c.registrationOpen === false ? 'Paused: the page shows a call/email notice' : 'Students can sign up and pay') + '</span></div>' +
       '<div class="cfg-grid">' +
       '<div class="field full"><label>Test date (YYYY-MM-DD)</label><input id="cf-testDate" value="' + esc(f(c.testDate)) + '" /></div>' +
       '<div class="field full"><label>Test date display</label><input id="cf-testDateDisplay" value="' + esc(f(c.testDateDisplay)) + '" /></div>' +
@@ -471,6 +472,7 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
         manualAddonCents: Math.round((Number(document.getElementById('cf-manual').value) || 0) * 100),
         ccSurchargePct: Number(document.getElementById('cf-cc').value) || 0,
         location: document.getElementById('cf-location').value.trim(),
+        registrationOpen: document.getElementById('cf-open').checked,
       };
       api('/admin/api/belt-config', {method:'PUT', body: JSON.stringify(patch)})
         .then(function(j){ beltConfig = j.config; document.getElementById('cf-note').textContent = '✓ Saved — live immediately.'; })

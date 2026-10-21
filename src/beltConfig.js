@@ -20,6 +20,7 @@
  * @property {number} lateFeeCents          e.g. 5000
  * @property {number} manualAddonCents      e.g. 3000
  * @property {number} ccSurchargePct        e.g. 3
+ * @property {boolean} registrationOpen     false = sign-up paused (form hidden, APIs refuse)
  */
 
 /** Sensible defaults. Written to KV on first read if the key doesn't exist. */
@@ -35,6 +36,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   lateFeeCents: 5000,
   manualAddonCents: 3000,
   ccSurchargePct: 3,
+  registrationOpen: true,
 });
 
 const KV_KEY = 'current';
@@ -116,17 +118,25 @@ export function testingTimeFor(block) {
   return '';
 }
 
-/** Compute the total in cents given the user's selections + config. */
-export function computeTotalCents(tierId, opts, cfg) {
+/**
+ * Every charge in cents, computed server-side. The card processing fee is its
+ * own line: ccSurchargePct of the subtotal (all online payments are by card).
+ */
+export function computeBeltAmounts(tierId, opts, cfg) {
   const tier = findTier(tierId);
   if (!tier) throw new Error(`Unknown tier: ${tierId}`);
-  let cents = tier.priceCents;
-  if (opts.wantsManual && tierId !== 'brown') cents += cfg.manualAddonCents;
-  if (opts.isLate) cents += cfg.lateFeeCents;
-  if (opts.payByCreditCard) {
-    cents = Math.round(cents * (1 + cfg.ccSurchargePct / 100));
-  }
-  return cents;
+  const baseCents = tier.priceCents;
+  const manualCents = opts.wantsManual && tierId !== 'brown' ? cfg.manualAddonCents : 0;
+  const lateCents = opts.isLate ? cfg.lateFeeCents : 0;
+  const subtotalCents = baseCents + manualCents + lateCents;
+  const pct = Math.max(0, Number(cfg.ccSurchargePct) || 0);
+  const processingFeeCents = Math.round(subtotalCents * pct / 100);
+  return { baseCents, manualCents, lateCents, subtotalCents, processingFeePct: pct, processingFeeCents, totalCents: subtotalCents + processingFeeCents };
+}
+
+/** Total in cents (kept for callers that only need the total). */
+export function computeTotalCents(tierId, opts, cfg) {
+  return computeBeltAmounts(tierId, opts, cfg).totalCents;
 }
 
 /** Is right-now past the late-fee cutoff for the configured test? */
