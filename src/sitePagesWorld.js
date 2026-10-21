@@ -8,6 +8,14 @@ import { getPublishedDoc } from './contentDocs.js';
 
 const I = (name) => `${IMG}/${name}`;
 
+/** Only http(s), mailto:, tel: and site-relative URLs are allowed as links. */
+function safeUrl(u) {
+  const s = String(u ?? '');
+  if (/^(https?:|mailto:|tel:)/i.test(s)) return s;
+  if (s.startsWith('/') && !s.startsWith('//')) return s;
+  return '';
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  NEWS & EVENTS
 // ═════════════════════════════════════════════════════════════════════════════
@@ -25,7 +33,7 @@ export async function buildNewsEventsPage(env, docOverride) {
       <div class="prose">
         ${(it.paragraphs || []).map(p => `<p>${esc(p)}</p>`).join('')}
       </div>
-      ${it.cta && it.cta.href ? `<p style="margin-top:22px"><a href="${esc(it.cta.href)}" ${it.cta.href.startsWith('http') ? 'target="_blank" rel="noopener"' : ''} class="btn-primary">${esc(it.cta.label || 'Learn more')}</a></p>` : ''}
+      ${(function(){ const u = it.cta && it.cta.href ? safeUrl(it.cta.href) : ''; return u ? `<p style="margin-top:22px"><a href="${esc(u)}" ${/^https?:/i.test(u) ? 'target="_blank" rel="noopener"' : ''} class="btn-primary">${esc(it.cta.label || 'Learn more')}</a></p>` : ''; })()}
     </div>`;
     return `<div class="section${i % 2 === 1 ? ' alt' : ''}">
       ${i % 2 === 1 ? `<div class="inner"><div class="grid-2" style="align-items:start">${body}${media}</div></div>` : `<div class="grid-2" style="align-items:start">${media}${body}</div>`}

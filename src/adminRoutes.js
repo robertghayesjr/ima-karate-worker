@@ -117,7 +117,11 @@ export async function handleAdminRoutes(request, env, url) {
     }
     await clearLoginFailures(env, request);
     const token = await createSession(env, request);
-    return json({ ok: true, token });
+    const res = json({ ok: true, token });
+    // HttpOnly session cookie — usable by iframes/imgs, not readable by JS.
+    res.headers.append('Set-Cookie',
+      `ima_admin_sess=${token}; Path=/; Max-Age=${SESSION_TTL}; Secure; HttpOnly; SameSite=Strict`);
+    return res;
   }
 
   // ── Session-gated endpoints ──
@@ -233,7 +237,7 @@ export async function handleAdminRoutes(request, env, url) {
     return json({ ok: true, id, name, type });
   }
 
-  m = p.match(/^\/admin\/api\/attachment\/([a-z0-9]+)$/);
+  m = p.match(/^\/admin\/api\/attachment\/([a-z0-9-]+)$/);
   if (m && request.method === 'GET') {
     const raw = await env.IMA_KARATE.get(`admin:attachment:${m[1]}`);
     if (!raw) return json({ error: 'Not found' }, 404);

@@ -43,8 +43,10 @@ Workflow for News and Schedule:
 1. Claude (or you) saves a **draft**.
 2. **Preview** shows the draft on the real page — the live site is untouched.
 3. **Publish Draft** makes it live and saves a permanent revision.
-4. **Restore** on any revision brings it back as a new draft — history is never
-   deleted, so you can always undo.
+4. **Restore** on any revision brings it back as a new draft. The first edit
+   automatically saves a "baseline" revision of the original content, so you
+   can always get back to the starting point. Retention: the last 30
+   revisions are indexed, and revision snapshots are kept for one year.
 
 ## Where the data lives
 

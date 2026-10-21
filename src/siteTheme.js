@@ -11,10 +11,10 @@
 const IMG = '/img';
 const LOGO = 'https://cdn.prod.website-files.com/67294bbae93e819099f356c2/672953cd9cf8c751045fb537_Logo.png';
 
-const esc = (s) =>
-  String(s ?? '').replace(/[&<>"']/g, (c) => ({
-    '&': '&', '<': '<', '>': '>', '"': '"', "'": '&#39;',
-  })[c]);
+const ENT = {
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+};
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ENT[c]);
 
 // ── Navigation tree ───────────────────────────────────────────────────────────
 const NAV = [
@@ -360,6 +360,9 @@ details.acc .acc-body p{color:#b8b8bd;margin:0 0 10px;font-size:.92rem}
 .slider-btn:hover{background:#c8102e;border-color:#c8102e}
 .slider-btn.prev{left:16px}
 .slider-btn.next{right:16px}
+.slider-pause{position:absolute;bottom:12px;left:16px;z-index:3;background:rgba(10,10,11,.55);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);color:#f4f4f5;border-radius:20px;padding:5px 12px;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:background .2s,border-color .2s}
+.slider-pause:hover{background:#c8102e;border-color:#c8102e}
+.slider:focus-visible{outline:2px solid #d4a24a;outline-offset:3px;border-radius:10px}
 .slider-dots{position:absolute;bottom:16px;right:20px;z-index:3;display:flex;gap:7px}
 .slider-dots button{width:26px;height:5px;border:0;border-radius:3px;background:rgba(255,255,255,.25);cursor:pointer;transition:background .25s,transform .25s;padding:0}
 .slider-dots button:hover{background:rgba(255,255,255,.5)}
@@ -518,15 +521,35 @@ const SITE_JS = `
     function go(idx){
       i = ((idx % n) + n) % n;
       track.style.transform = 'translateX(' + (-i * 100) + '%)';
-      slides.forEach(function(s, k){ s.setAttribute('aria-hidden', k === i ? 'false' : 'true'); });
+      slides.forEach(function(s, k){
+        var active = k === i;
+        s.setAttribute('aria-hidden', active ? 'false' : 'true');
+        // keep off-screen links out of the tab order
+        if ('inert' in s) s.inert = !active;
+        else s.querySelectorAll('a,button').forEach(function(el){ el.tabIndex = active ? 0 : -1; });
+      });
       dots.forEach(function(d, dk){ d.setAttribute('aria-current', dk === i ? 'true' : 'false'); });
     }
     function play(){ if (auto && !timer) timer = setInterval(function(){ go(i + 1); }, 5500); }
     function pause(){ if (timer) { clearInterval(timer); timer = null; } }
+    function restart(){
+      pause();
+      // don't resume autoplay while the user is interacting with the slider
+      if (auto && !slider.contains(document.activeElement)) play();
+    }
     if (prev) prev.addEventListener('click', function(){ go(i - 1); restart(); });
     if (next) next.addEventListener('click', function(){ go(i + 1); restart(); });
     dots.forEach(function(d){ d.addEventListener('click', function(){ go(parseInt(d.getAttribute('data-idx'), 10)); restart(); }); });
-    function restart(){ pause(); play(); }
+    // pause/play control
+    var pauseBtn = slider.querySelector('.slider-pause');
+    if (pauseBtn) {
+      auto = auto && true;
+      var setLabel = function(){ pauseBtn.textContent = timer ? 'Pause' : 'Play'; };
+      pauseBtn.addEventListener('click', function(){
+        if (timer) { pause(); setLabel(); }
+        else { auto = true; play(); setLabel(); }
+      });
+    }
     // keyboard: left/right when slider focused
     slider.addEventListener('keydown', function(e){
       if (e.key === 'ArrowLeft') { e.preventDefault(); go(i - 1); restart(); }
@@ -715,7 +738,8 @@ function pageHero({ eyebrow, title, lead, bg, crumbs = [] }) {
         )
         .join('')}</p>`
     : '';
-  return `<section class="page-hero${bg ? ' has-photo' : ''}"${bg ? ` style="background-image:url('${IMG}/${bg}')"` : ''}>
+  const bgUrl = bg ? (String(bg).startsWith('/') ? String(bg) : `${IMG}/${bg}`) : '';
+  return `<section class="page-hero${bg ? ' has-photo' : ''}"${bgUrl ? ` style="background-image:url('${bgUrl}')"` : ''}>
     <div class="page-hero-inner">
       ${crumbHtml}
       ${eyebrow ? `<p class="eyebrow" style="display:inline-flex">${esc(eyebrow)}</p>` : ''}
@@ -727,7 +751,7 @@ function pageHero({ eyebrow, title, lead, bg, crumbs = [] }) {
 
 // ── Slider (accessible carousel) ─────────────────────────────────────────────
 // slides: [{ img, alt, title, text, href, hrefLabel }]
-function slider({ slides, id = '', autoplay = true }) {
+function slider({ slides, id = '', autoplay = true, label }) {
   const items = slides
     .map((s, idx) => {
       const cap = s.title
@@ -739,10 +763,11 @@ function slider({ slides, id = '', autoplay = true }) {
   const dots = slides
     .map((_, idx) => `<button type="button" data-idx="${idx}" aria-label="Go to slide ${idx + 1}" aria-current="${idx === 0}"></button>`)
     .join('');
-  return `<div class="slider reveal"${id ? ` id="${id}"` : ''}${autoplay ? ' data-autoplay' : ''} role="region" aria-roledescription="carousel" tabindex="0" style="outline:none">
+  return `<div class="slider reveal"${id ? ` id="${id}"` : ''}${autoplay ? ' data-autoplay' : ''} role="region" aria-roledescription="carousel" aria-label="Image carousel"${label ? ` aria-label="${esc(label)}"` : ''} tabindex="0">
     <div class="slider-track">${items}</div>
     <button class="slider-btn prev" type="button" aria-label="Previous slide">‹</button>
     <button class="slider-btn next" type="button" aria-label="Next slide">›</button>
+    ${slides.length > 1 ? '<button class="slider-pause" type="button" aria-label="Pause autoplay">Pause</button>' : ''}
     <div class="slider-dots">${dots}</div>
   </div>`;
 }

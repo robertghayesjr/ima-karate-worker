@@ -121,17 +121,16 @@ export function buildBenefitsKaratePage() {
     </div>
     <div class="grid-3">
       ${[
-        ['Seek perfection of character', 'Jinkaku kansei ni tsutomuru koto'],
-        ['Be faithful', 'Makoto no michi o mamoru koto'],
-        ['Endeavor (to excel)', 'Doryoku no seishin o yashinau koto'],
-        ['Respect others', 'Reigi o omonzuru koto'],
-        ['Refrain from violent behavior', 'Keki no yū o imashimuru koto'],
-        ['Love yourself and love others', 'Onore o shiri, tasha o shiru koto'],
+        'Seek perfection of character',
+        'Be faithful',
+        'Endeavor (to excel)',
+        'Respect others',
+        'Refrain from violent behavior',
+        'Love yourself and love others',
       ]
         .map(
-          ([en, jp], i) => `<div class="card spotlight reveal" data-delay="${(i % 3) * 90}">
+          (en, i) => `<div class="card spotlight reveal" data-delay="${(i % 3) * 90}">
           <div class="card-body">
-            <span class="jp" style="display:block;margin-bottom:8px;font-size:.78rem">${jp}</span>
             <h3 style="font-size:.98rem">${en}</h3>
           </div>
         </div>`,
@@ -253,17 +252,17 @@ export function buildInstructorsPage() {
   const people = [
     ['hanshi-portrait.jpg', 'Hanshi Cyrus Madani', 'Kudan · Chief Instructor', 'Founder and Chief Instructor of IMA. Began training in 1964 and has taught Shotokan karate in Louisville since 1990. Former PKF/WKF kata and kumite referee with the highest license.'],
     ['fariba-portrait.jpg', 'Shihan Fariba Madani', 'Hachidan · Head Instructor', 'First national karate referee from Colorado and the first U.S. female referee at the Pan American level for both kata and kumite. World and Pan American referee council member.'],
-    ['inst-michelle.jpg', 'Sensei Michelle Prud’Homme', 'Rokudan', 'Started with Hanshi at the rec center before the dojo was built, October 26, 1993. National Referee A license.'],
-    ['inst-bob.jpg', 'Sensei Bob McCormick', 'Rokudan', 'Joined IMA Honbu dojo in 1996 and began teaching in 1997 while an orange belt. Valued the family atmosphere from his first visit.'],
-    ['inst-deborah.jpg', 'Sensei Deborah Keyek-Franssen', 'Godan', 'Studying with Hanshi since February 1999. Started at the YMCA in Lafayette with her two sons before moving to the Honbu dojo.'],
-    ['inst-irina.jpg', 'Sensei Irina Petropavlovskikh', 'Yondan', 'Started at IMA in 2005 with her daughter, who is also a black belt. Born in Russia; came to the US for graduate studies.'],
+    ['inst-michelle.jpg', 'Sensei Michelle Prud’Homme', 'Rokudan', 'Started with Hanshi at the rec center before the dojo was built, October 26, 1993. Achieved National Referee A license. She grew up a Preacher’s kid with 5 sisters and no brothers.'],
+    ['inst-bob.jpg', 'Sensei Bob McCormick', 'Rokudan', 'Joined IMA Honbu dojo in 1996 and began teaching in 1997 while an orange belt. “I liked IMA because when I first visited I could see the family atmosphere, but also the very high level at which karate-do was being practiced. I had trained in martial arts before and I knew high quality when I saw it. In learning karate the most important thing is to always try as hard as you can, karate is challenging. In teaching karate I try to find one or two things to focus on — sometimes it is as simple as telling them to not look at the floor, which completely changes their posture and fixes several other problems they were having.”'],
+    ['inst-deborah.jpg', 'Sensei Deborah Keyek-Franssen', 'Godan', 'Sensei Deb has been studying with Hanshi since February of 1999. She started at the YMCA in Lafayette, Colorado with her two sons and moved to Honbu dojo soon after. She has a lifetime membership in the USA-WKF and has supported the sport of karate by judging and refereeing at many local tournaments including our very own Rocky Mountain Championship. She met her Canadian husband while in Austria teaching high school.'],
+    ['inst-irina.jpg', 'Sensei Irina Petropavlovskikh', 'Yondan', 'Started in IMA dojo in 2005 with her daughter, who is also a black belt. She was born in Russia and came to the US for graduate studies and loved Colorado so much that the family decided to make their home here. Her daughter earned her black belt at age 16 at Honbu dojo. She holds a kata and kumite judges license C for WKF.'],
     ['inst-kamran.jpg', 'Sensei Kamran Madani', 'Yondan · Head Coach', 'Bronze-medal winner at the 2011 Junior World Championships in Malaysia and Pan American medalist. IMA head coach and USA coach.'],
-    ['inst-david.jpg', 'Sensei David Miller', 'Yondan', 'Studying martial arts since 1988; training with Hanshi Madani for over 23 years.'],
-    ['inst-josh.jpg', 'Sensei Josh Schmidt', 'Sandan', 'The very first black belt under Hanshi Madani at the Honbu Dojo. Has continued his training to the rank of Sandan.'],
-    ['inst-keith.jpg', 'Sensei Keith Nakasato', 'Sandan', 'Training with Hanshi for 14 years. His wife and two children also hold black belts with IMA karate.'],
-    ['inst-kelara.jpg', 'Sensei Kelara Madani', 'Sandan', 'Training at the Honbu dojo since she was 4 years old. Speaks three languages and is learning a fourth. National-level competitor.'],
-    ['inst-philippe.jpg', 'Senpai Philippe Lepercq', 'Senpai', 'Joined IMA in 2011 with his daughter. Began his martial arts experience in France, where he grew up.'],
-    ['inst-joy.jpg', 'Sensei Joy Hierlmaier', 'Sandan', 'Former member of the IMA competition team with three national-level medals.'],
+    ['inst-david.jpg', 'Sensei David Miller', 'Yondan', 'Sensei Miller has been studying martial arts since 1988 and started training with Hanshi Madani 23 years ago. He is a 4th Degree Black Belt and also enjoys playing the French Horn. He holds an extra class ham radio license and enjoys renovating homes for fun. His children also trained at IMA karate for a number of years until they went to college.'],
+    ['inst-josh.jpg', 'Sensei Josh Schmidt', 'Sandan', 'Sensei Josh is the very first Black Belt under Hanshi Madani at the Honbu Dojo. He has continued his training and reached the rank of Sandan. He works very hard as a captain at South Metro Fire to help people of our community. He also coaches the competition team and his wife and two children are also members of IMA Karate.'],
+    ['inst-keith.jpg', 'Sensei Keith Nakasato', 'Sandan', 'Sensei Nakasato has been training with Hanshi for 14 years. His wife and two children also have black belts with IMA karate. He is located in Dallas and joins the Black Belt classes via Zoom to continue his training with Hanshi Madani. For fun he enjoyed SCCA autocross racing in his Honda Civic in the 90’s.'],
+    ['inst-kelara.jpg', 'Sensei Kelara Madani', 'Sandan', 'Sensei Kelara has been training at Honbu dojo since she was 4 years old. She speaks three languages and is learning a fourth. Her notable achievements include 6 national championships and a Jr. Pan American Bronze medal as well as a Series A Silver medal. She also coaches the IMA competition team who has been very successful at the national level.'],
+    ['inst-philippe.jpg', 'Senpai Philippe Lepercq', 'Senpai', 'Senpai Philippe joined IMA in 2011 with his daughter. He began his martial arts experience in France where he grew up. He enjoys teaching at the dojo, cooking, skiing, gardening, and home repair. He developed a French style mustard in his spare time and likes the movie Shackleton. He enjoys teaching the kids and being a mentor as well as helping them learn and become leaders in our community.'],
+    ['inst-joy.jpg', 'Sensei Joy Hierlmaier', 'Sandan', 'Current rank is Sandan and a former member of the IMA competition team. She has three national level medals which she got with the excellent coaching and training at IMA. Sensei Joy’s specialty is the Tiny Tigers program for 4–5 year old children. She met Hanshi Madani in 2011 and moved from Minnesota in 2016 to be a permanent member of IMA. She enjoys helping the students learn and become the best versions of themselves.'],
   ];
   const content = `
   ${pageHero({

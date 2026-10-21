@@ -123,7 +123,14 @@ export function validateDoc(docKey, doc) {
       for (const p of it.paragraphs || []) {
         if (!str(p, 3000)) return fail('News paragraphs must be strings (max 3000 chars)');
       }
-      if (it.cta && !(str(it.cta.label, 120) && str(it.cta.href, 500))) return fail('cta needs label + href');
+      if (it.cta) {
+        if (!(str(it.cta.label, 120) && str(it.cta.href, 500))) return fail('cta needs label + href');
+        if (!/^(https?:|mailto:|tel:|\/)/i.test(it.cta.href)) return fail('cta.href must be http(s), mailto:, tel:, or site-relative');
+      }
+      if (it.img !== undefined && it.img !== '') {
+        // http(s) URL, site-relative path, or a bare filename served from /img/
+        if (!/^(https?:\/\/|\/|[\w.-]+\.(jpg|jpeg|png|webp|gif|svg))$/i.test(it.img)) return fail('img must be a site filename, /path, or https URL');
+      }
       if (it.eyebrow !== undefined && !str(it.eyebrow, 60)) return fail('eyebrow must be a short string');
       if (it.img !== undefined && !str(it.img, 300)) return fail('img must be a string path');
       if (it.layout !== undefined && !['media-left', 'media-right'].includes(it.layout)) return fail('layout must be media-left or media-right');
@@ -167,20 +174,39 @@ export async function publishDraft(env, docKey, actor = 'admin') {
   return publishDoc(env, docKey, draft, actor);
 }
 
-/** Publish an explicit doc (used by restore). */
+/**
+ * Publish an explicit doc (used by restore and by publishDraft).
+ * Order matters: the immutable revision is written BEFORE the published
+ * pointer changes, so a failure can never leave a live change without its
+ * history. On the first ever publish, the outgoing (default) content is
+ * saved as a baseline revision so the original state is always restorable.
+ */
 export async function publishDoc(env, docKey, doc, actor = 'admin') {
-  const revId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const now = new Date().toISOString();
-  await env.IMA_KARATE.put(key(docKey, 'published'), JSON.stringify(doc));
-  await env.IMA_KARATE.put(`${key(docKey, 'rev')}:${revId}`, JSON.stringify({
-    revId, publishedAt: now, actor, doc,
-  }), { expirationTtl: 60 * 60 * 24 * 365 });
   const idxRaw = await env.IMA_KARATE.get(key(docKey, 'revindex'));
   let idx = [];
   try { idx = idxRaw ? JSON.parse(idxRaw) : []; } catch {}
+  const firstPublish = idx.length === 0;
+
+  // Baseline: snapshot the outgoing content so the first edit is undoable.
+  if (firstPublish) {
+    const baseline = await getPublishedDoc(env, docKey); // defaults when nothing published yet
+    const baseId = 'baseline';
+    await env.IMA_KARATE.put(`${key(docKey, 'rev')}:${baseId}`, JSON.stringify({
+      revId: baseId, publishedAt: now, actor: 'baseline (pre-edit state)', doc: baseline,
+    }), { expirationTtl: 60 * 60 * 24 * 365 });
+    idx.push(baseId);
+  }
+
+  const revId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  await env.IMA_KARATE.put(`${key(docKey, 'rev')}:${revId}`, JSON.stringify({
+    revId, publishedAt: now, actor, doc,
+  }), { expirationTtl: 60 * 60 * 24 * 365 });
   idx.unshift(revId);
   idx = idx.slice(0, MAX_REVISIONS);
+  // Index + published pointer are written only after the revision is durable.
   await env.IMA_KARATE.put(key(docKey, 'revindex'), JSON.stringify(idx));
+  await env.IMA_KARATE.put(key(docKey, 'published'), JSON.stringify(doc));
   await env.IMA_KARATE.delete(key(docKey, 'draft'));
   console.log(`content published: ${docKey} rev ${revId} by ${actor}`);
   return { ok: true, revId, publishedAt: now };

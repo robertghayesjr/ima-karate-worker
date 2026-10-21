@@ -68,6 +68,8 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
 .att-strip .att-item{position:relative}
 .att-strip img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #333}
 .att-strip .att-item .x{position:absolute;top:-6px;right:-6px;background:#c8102e;color:#fff;border-radius:50%;width:20px;height:20px;border:0;font-size:.7rem;line-height:1}
+.att-strip .att-item .use{position:absolute;left:0;right:0;bottom:-24px;background:#131316;border:1px solid #3a3a40;color:#d4a24a;border-radius:4px;padding:2px 4px;font-size:.62rem;white-space:nowrap}
+.att-strip .att-item{margin-bottom:28px}
 .hint{font-size:.75rem;color:#77777c;margin-top:8px}
 
 /* right panel */
@@ -297,11 +299,31 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
     strip.style.display = 'flex';
     pendingAttachments.forEach(function(a, i){
       var d = document.createElement('div'); d.className = 'att-item';
-      if (/^image\\//.test(a.type)) {
+      if (/^image\//.test(a.type)) {
         var im = document.createElement('img'); im.src = '/admin/api/attachment/' + a.id; im.alt = a.name; d.appendChild(im);
+        var use = document.createElement('button'); use.className = 'use'; use.textContent = 'Use on site';
+        use.title = 'Publish this image as a site image and copy its URL';
+        use.onclick = function(){
+          use.disabled = true; use.textContent = 'Publishing…';
+          api('/admin/api/asset/publish', {method:'POST', body: JSON.stringify({attachmentId: a.id})})
+            .then(function(j){
+              use.textContent = 'URL copied ✓';
+              var url = location.origin + j.url;
+              if (navigator.clipboard) navigator.clipboard.writeText(url).catch(function(){});
+              addMsg('sys', 'Image published for the site at ' + j.url + ' — you can reference this URL in content, or just ask Claude to use the attached image.');
+            })
+            .catch(function(e){ use.disabled = false; use.textContent = 'Use on site'; addMsg('sys', 'Publish failed: ' + e.message); });
+        };
+        d.appendChild(use);
       } else {
         var c = document.createElement('span'); c.className = 'chip'; c.textContent = '📄 ' + a.name; d.appendChild(c);
       }
+      var x = document.createElement('button'); x.className = 'x'; x.textContent = '×'; x.title = 'Remove';
+      x.onclick = function(){ pendingAttachments.splice(i,1); renderAttStrip(); };
+      d.appendChild(x);
+      strip.appendChild(d);
+    });
+  }
       var x = document.createElement('button'); x.className = 'x'; x.textContent = '×'; x.title = 'Remove';
       x.onclick = function(){ pendingAttachments.splice(i,1); renderAttStrip(); };
       d.appendChild(x);
@@ -319,7 +341,8 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
     });
   });
 
-  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]; }); }
+  var ENT = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return ENT[c]; }); }
 
   function renderTab(){
     var body = document.getElementById('tab-body');

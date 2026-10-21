@@ -33,7 +33,9 @@ function isDemoMode(env) {
  */
 function canWriteMember(env, memberId) {
   if (!memberId) return false;
-  if (isDemoMode(env)) return memberId.startsWith('mem_demo_');
+  // Demo mode performs NO Memberstack writes at all — demo activity is fully
+  // isolated from real members. (Fail-closed: an unset env is not demo.)
+  if (isDemoMode(env)) return false;
   return true;
 }
 
@@ -97,16 +99,14 @@ export async function handleBeltTestingRoutes(request, env, url) {
     return handlePostPayment(request, env, url);
   }
 
-  // Mock Stripe checkout page — demo mode only. Reachable via the URL that
-  // /belt-testing/checkout returns when DEMO_MODE=1 or plan IDs are unset.
-  if (p === '/belt-testing/mock-stripe') {
-    return handleMockStripe(request, env, url);
-  }
-
-  // Mock DocuSign signing page — demo mode only. Reachable from the
-  // post-payment interstitial when in demo mode.
-  if (p === '/belt-testing/mock-docusign') {
-    return handleMockDocusign(request, env, url);
+  // Mock Stripe / DocuSign pages — demo mode ONLY. In production these
+  // routes do not exist (404) so the mock flow can never stand in for the
+  // real payment or signing services.
+  if ((p === '/belt-testing/mock-stripe' || p === '/belt-testing/mock-docusign')) {
+    if (!isDemoMode(env)) return new Response('Not found', { status: 404 });
+    return p === '/belt-testing/mock-stripe'
+      ? handleMockStripe(request, env, url)
+      : handleMockDocusign(request, env, url);
   }
 
   // ── JSON API ─────────────────────────────────────────────────────────────
@@ -122,7 +122,10 @@ export async function handleBeltTestingRoutes(request, env, url) {
   if (p === '/belt-testing/webhook/paid') return apiWebhookPaid(request, env);
   if (p === '/belt-testing/webhook/signed') return apiWebhookSigned(request, env);
   if (p === '/belt-testing/docusign-connect') return apiDocusignConnect(request, env);
-  if (p === '/belt-testing/mock-docusign-complete') return apiMockDocusignComplete(request, env);
+  if (p === '/belt-testing/mock-docusign-complete') {
+    if (!isDemoMode(env)) return json({ error: 'Not found' }, 404);
+    return apiMockDocusignComplete(request, env);
+  }
 
   return null;
 }
@@ -326,8 +329,9 @@ async function handlePostPayment(request, env, url) {
 
   // HARDENING: only mark the member paid when the one-time checkout token
   // from our own checkout URL is presented — an arbitrary GET (or a stale
-  // bookmark) can no longer flip the paid flag.
-  const tokenOk = stash?.checkoutToken && token && stash.checkoutToken === token;
+  // bookmark) can no longer flip the paid flag. The same token gates the
+  // DocuSign envelope below.
+  const tokenOk = !!(stash?.checkoutToken && token && stash.checkoutToken === token);
   const markPaid = tokenOk && canWriteMember(env, memberId);
   if (markPaid) {
     try {
@@ -345,7 +349,7 @@ async function handlePostPayment(request, env, url) {
   // HARDENING: idempotent — a page refresh does not send a second envelope.
   // Demo mode skips DocuSign entirely and shows a mock-signing CTA instead.
   let docusignError = null;
-  if (stash && !demo) {
+  if (stash && !demo && tokenOk) {
     const sentKey = `docusign-sent:${memberId}`;
     const alreadySent = await env.IMA_KARATE.get(sentKey);
     if (alreadySent) {
@@ -354,9 +358,12 @@ async function handlePostPayment(request, env, url) {
       const member = await getMember(env, memberId).catch(() => null);
       const payload = buildDocusignPayload(stash, member, cfg);
       try {
+        // Claim the sent-flag BEFORE sending to narrow the concurrent-request
+        // race window; remove it if the send fails so a retry is possible.
+        await env.IMA_KARATE.put(sentKey, JSON.stringify({
+          state: 'sending', sentAt: new Date().toISOString(),
+        }), { expirationTtl: 60 * 60 * 24 * 7 });
         const result = await sendBeltTestEnvelope(env, payload);
-        // Stash envelope ID against member so /webhook/signed can correlate,
-        // and record that this member's envelope was already sent.
         try {
           await env.IMA_KARATE.put(
             `envelope:${result.envelopeId}`,
@@ -364,15 +371,18 @@ async function handlePostPayment(request, env, url) {
             { expirationTtl: 60 * 60 * 24 * 30 },
           );
           await env.IMA_KARATE.put(sentKey, JSON.stringify({
-            envelopeId: result.envelopeId,
+            state: 'sent', envelopeId: result.envelopeId,
             sentAt: new Date().toISOString(),
           }), { expirationTtl: 60 * 60 * 24 * 7 });
         } catch (e) { console.warn('envelope stash failed:', e.message); }
       } catch (e) {
         console.error('DocuSign send failed:', e.message);
         docusignError = e.message;
+        await env.IMA_KARATE.delete(sentKey).catch(() => {});
       }
     }
+  } else if (stash && !demo && !tokenOk) {
+    console.warn(`post-payment: DocuSign NOT sent for ${memberId} — checkout token missing/mismatched`);
   }
 
   // Interstitial: tell them to check their inbox and sign, then go to thank-you.
@@ -488,11 +498,24 @@ function escStr(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&a
 //  can call this after payment to guarantee the paid flag gets set even if
 //  the user closes the tab before hitting /post-payment.
 // ─────────────────────────────────────────────────────────────────────────────
+function webhookAuthorized(request, env) {
+  // Shared-secret auth for external webhooks. Without WEBHOOK_SECRET the
+  // hooks are disabled (fail closed) — configure the secret in the Worker
+  // and pass it as ?secret= or the x-webhook-secret header.
+  const secret = env.WEBHOOK_SECRET || '';
+  if (!secret) return { ok: false, status: 503, error: 'Webhooks not configured — set WEBHOOK_SECRET on the Worker.' };
+  const got = request.headers.get('x-webhook-secret') || new URL(request.url).searchParams.get('secret') || '';
+  if (got !== secret) return { ok: false, status: 401, error: 'Invalid webhook secret' };
+  return { ok: true };
+}
+
 async function apiWebhookPaid(request, env) {
+  const auth = webhookAuthorized(request, env);
+  if (!auth.ok) return json({ error: auth.error }, auth.status);
   const body = await request.json().catch(() => null);
   if (!body?.memberId) return json({ error: 'memberId required' }, 400);
   // Guarded: demo mode never writes to real Memberstack members.
-  if (!canWriteMember(env, body.memberId)) return json({ ok: true, skipped: 'demo-mode real member' });
+  if (!canWriteMember(env, body.memberId)) return json({ ok: true, skipped: 'demo-mode' });
   await recordBeltTestProgress(env, body.memberId, { paid: true });
   return json({ ok: true });
 }
@@ -501,10 +524,11 @@ async function apiWebhookPaid(request, env) {
 // supported for any external tool that wants to force a member's
 // belt-test-signed flag; expects { memberId, envelopeId? }.
 async function apiWebhookSigned(request, env) {
+  const auth = webhookAuthorized(request, env);
+  if (!auth.ok) return json({ error: auth.error }, auth.status);
   const body = await request.json().catch(() => null);
   if (!body?.memberId) return json({ error: 'memberId required' }, 400);
-  // Guarded: demo mode never writes to real Memberstack members.
-  if (!canWriteMember(env, body.memberId)) return json({ ok: true, skipped: 'demo-mode real member' });
+  if (!canWriteMember(env, body.memberId)) return json({ ok: true, skipped: 'demo-mode' });
   await recordBeltTestProgress(env, body.memberId, {
     signed: true,
     envelopeId: body.envelopeId,
