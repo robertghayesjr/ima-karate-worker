@@ -1,15 +1,37 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  News & Events + Dojo Locations pages. Copy follows imakarate.com.
+//  The news page renders from the "news" content doc (KV, editable via /admin).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { esc, IMG, pageShell, pageHero } from './siteTheme.js';
+import { getPublishedDoc } from './contentDocs.js';
 
 const I = (name) => `${IMG}/${name}`;
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════
 //  NEWS & EVENTS
-// ═══════════════════════════════════════════════════════════════════════════════
-export function buildNewsEventsPage() {
+// ═════════════════════════════════════════════════════════════════════════════
+export async function buildNewsEventsPage(env, docOverride) {
+  const doc = docOverride || await getPublishedDoc(env, 'news');
+  const items = Array.isArray(doc.items) ? doc.items : [];
+
+  const itemHtml = items.map((it, i) => {
+    const media = `<div class="img-frame reveal${it.layout === 'media-right' ? '' : ''}" style="max-width:440px">
+      <img src="${it.img?.startsWith('/') ? it.img : I(esc(it.img || 'gasshuku-mountain.jpg'))}" alt="${esc(it.imgAlt || it.title || 'IMA news')}" loading="lazy" />
+    </div>`;
+    const body = `<div class="reveal" data-delay="90">
+      ${it.eyebrow ? `<p class="eyebrow">${esc(it.eyebrow)}</p>` : ''}
+      <h2 class="sec">${esc(it.title)}</h2>
+      <div class="prose">
+        ${(it.paragraphs || []).map(p => `<p>${esc(p)}</p>`).join('')}
+      </div>
+      ${it.cta && it.cta.href ? `<p style="margin-top:22px"><a href="${esc(it.cta.href)}" ${it.cta.href.startsWith('http') ? 'target="_blank" rel="noopener"' : ''} class="btn-primary">${esc(it.cta.label || 'Learn more')}</a></p>` : ''}
+    </div>`;
+    return `<div class="section${i % 2 === 1 ? ' alt' : ''}">
+      ${i % 2 === 1 ? `<div class="inner"><div class="grid-2" style="align-items:start">${body}${media}</div></div>` : `<div class="grid-2" style="align-items:start">${media}${body}</div>`}
+    </div>`;
+  }).join('');
+
   const content = `
   ${pageHero({
     eyebrow: 'News & Events',
@@ -18,54 +40,7 @@ export function buildNewsEventsPage() {
     bg: I('gasshuku-mountain.jpg'),
     crumbs: [{ label: 'Home', href: '/' }, { label: 'News & Events' }],
   })}
-
-  <!-- 2025 Gasshuku -->
-  <div class="section">
-    <div class="grid-2" style="align-items:start">
-      <div class="img-frame reveal" style="max-width:440px">
-        <img src="${I('gasshuku-mountain.jpg')}" alt="2025 IMA Gasshuku" loading="lazy" />
-      </div>
-      <div class="reveal" data-delay="90">
-        <p class="eyebrow">Annual Training Camp</p>
-        <h2 class="sec">2025 Gasshuku</h2>
-        <div class="prose">
-          <p>Please mark your calendar for another exciting Gasshuku in Colorado. We are excited to announce having special guests in addition to other great instructors.</p>
-          <p>Sensei Palmer from Peru, in addition to Sensei Obran — with hundreds of national and international medals and titles between them — are our honored guests for the 2025 Gasshuku.</p>
-          <p>There will be separate sessions for different levels with different emphases on the training. Please email the application form to info@imakarate.com. We offer several methods of payment such as PayPal, check, and cash.</p>
-          <p>Do not miss this once-a-year opportunity.</p>
-        </div>
-        <p style="margin-top:22px">
-          <a href="https://imakarate.com/wp-content/uploads/2025/07/2025-Gasshuku.pdf" target="_blank" rel="noopener" class="btn-primary">Download Schedule & Application</a>
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Rocky Mountain Championships -->
-  <div class="section alt">
-    <div class="inner">
-      <div class="grid-2" style="align-items:start">
-        <div class="reveal">
-          <p class="eyebrow">Tournament</p>
-          <h2 class="sec">Rocky Mountain Championships</h2>
-          <div class="prose">
-            <p>Dear IMA Family — it’s that time of year again to prepare for our annual Rocky Mountain Championships (RMC). We are beyond grateful for all the support and to be celebrating over 30 years of running the tournament here in Louisville, Colorado.</p>
-            <p>This year the tournament is special as it is officially a USA Karate sanctioned event, allowing access to more training opportunities and competition for those exploring these options.</p>
-            <p>Finally, we need help from our community to make this all happen. Volunteers for set up and takedown would be greatly appreciated — all Tournament Day table volunteers will receive the USA karate shirt.</p>
-          </div>
-        </div>
-        <div class="reveal" data-delay="90">
-          <div class="img-frame">
-            <img src="${I('madani-flyer.png')}" alt="2025 Rocky Mountain Championship flyer" loading="lazy" />
-          </div>
-          <div class="prose" style="margin-top:18px">
-            <p><strong>2025 Rocky Mountain International Championship</strong> — held in Louisville, Colorado, USA at Monarch High School. It is with great pleasure that we invite you to the RMC tournament hosted by the International Martial Arts Association.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
+  ${itemHtml || '<div class="section"><p class="lead">No news yet — check back soon.</p></div>'}
   <!-- Event calendar CTA -->
   <div class="section">
     <div class="reveal" style="text-align:center;max-width:640px;margin:0 auto">
@@ -75,7 +50,7 @@ export function buildNewsEventsPage() {
       <a href="mailto:info@imakarate.com?subject=IMA%20Event%20Calendar" class="btn-primary">Request the Event Calendar</a>
     </div>
   </div>`;
-  return pageShell({ title: 'News & Events | IMA Karate', description: 'The latest news from IMA Karate: Gasshuku training camp, Rocky Mountain Championships, and upcoming events.', activeNav: 'news', content });
+  return pageShell({ title: 'News & Events | IMA Karate', description: 'The latest news from IMA Karate: training camps, tournaments, and upcoming events.', activeNav: 'news', content });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

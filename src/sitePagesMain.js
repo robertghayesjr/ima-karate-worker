@@ -4,13 +4,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { esc, IMG, pageShell, pageHero, slider } from './siteTheme.js';
+import { getPublishedDoc } from './contentDocs.js';
 
 const I = (name) => `${IMG}/${name}`;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  HOME
 // ═══════════════════════════════════════════════════════════════════════════════
-export function buildHomePage() {
+export async function buildHomePage(env) {
+  const newsDoc = env ? (await getPublishedDoc(env, 'news')) : { items: [] };
   const content = `
   <!-- HERO -->
   <section class="hero">
@@ -122,22 +124,14 @@ export function buildHomePage() {
       <h2 class="sec">From the IMA Family</h2>
     </div>
     <div class="grid-2">
-      <a href="/news-events" class="card reveal">
-        <div class="card-img"><img src="${I('gasshuku-mountain.jpg')}" alt="2025 Gasshuku" loading="lazy" /></div>
+      ${(newsDoc.items || []).slice(0, 2).map((it, i) => `<a href="/news-events" class="card reveal" ${i === 1 ? 'data-delay="120"' : ''}>
+        <div class="card-img"><img src="${it.img?.startsWith('/') ? it.img : I(esc(it.img || 'gasshuku-mountain.jpg'))}" alt="${esc(it.imgAlt || it.title || 'IMA news')}" loading="lazy" /></div>
         <div class="card-body">
-          <h3>2025 Gasshuku</h3>
-          <p>Another exciting Gasshuku in Colorado with special guest instructors Sensei Palmer from Peru and Sensei Obran — hundreds of national and international medals and titles between them.</p>
+          <h3>${esc(it.title)}</h3>
+          <p>${esc((it.paragraphs || [''])[0] || '').slice(0, 220)}${((it.paragraphs || [''])[0] || '').length > 220 ? '…' : ''}</p>
           <span class="card-link">Read more →</span>
         </div>
-      </a>
-      <a href="/news-events" class="card reveal" data-delay="120">
-        <div class="card-img"><img src="${I('madani-flyer.png')}" alt="Rocky Mountain Championships" loading="lazy" /></div>
-        <div class="card-body">
-          <h3>Rocky Mountain Championships</h3>
-          <p>Celebrating over 30 years of the tournament in Louisville, Colorado. A USA Karate sanctioned event with access to more training and competition opportunities.</p>
-          <span class="card-link">Read more →</span>
-        </div>
-      </a>
+      </a>`).join('')}
     </div>
     <p style="margin-top:26px" class="reveal"><a href="/news-events" class="btn-outline">Read More News & Announcements</a></p>
   </div>

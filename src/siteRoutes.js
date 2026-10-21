@@ -65,7 +65,7 @@ export async function handleSiteRoutes(request, env, url) {
 
   // Home page
   if (p === '/') {
-    return pageResponse(buildHomePage());
+    return pageResponse(await buildHomePage(env));
   }
 
   // Contact form submission (stores in KV, then redirects to thank-you)
@@ -73,7 +73,7 @@ export async function handleSiteRoutes(request, env, url) {
     return handleContactSubmit(request, env);
   }
   if (p === '/contact/thank-you') {
-    return pageResponse(buildContactThanksPage());
+    return pageResponse(await buildContactThanksPage());
   }
 
   // Legacy WP-style path aliases → new pages (keeps old links working)
@@ -93,7 +93,7 @@ export async function handleSiteRoutes(request, env, url) {
 
   const builder = PAGES.get(p);
   if (builder && (request.method === 'GET' || request.method === 'HEAD')) {
-    return pageResponse(builder());
+    return pageResponse(await builder(env));
   }
   return null;
 }

@@ -24,6 +24,7 @@
 
 import { handleBeltTestingRoutes } from './beltRoutes.js';
 import { handleSiteRoutes } from './siteRoutes.js';
+import { handleAdminRoutes } from './adminRoutes.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -40,6 +41,17 @@ export default {
     // ── Utility endpoints ────────────────────────────────────────────────────
     if (url.pathname === '/__worker/health') {
       return json({ ok: true, worker: 'ima-karate-worker', v: 2, origin: env.ORIGIN });
+    }
+
+    // ── Admin area (chat with Claude, content drafts/revisions, settings) ───
+    if (url.pathname === '/admin' || url.pathname.startsWith('/admin/') || url.pathname.startsWith('/img-uploads/')) {
+      try {
+        const res = await handleAdminRoutes(request, env, url);
+        if (res) return res;
+      } catch (e) {
+        console.error('admin route error', e);
+        return json({ error: e.message || 'Admin route failed' }, 500);
+      }
     }
 
     // ── Rebuilt site pages (new theme, served directly by the Worker) ────────

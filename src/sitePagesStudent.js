@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { esc, IMG, pageShell, pageHero, slider } from './siteTheme.js';
+import { getPublishedDoc } from './contentDocs.js';
 
 const I = (name) => `${IMG}/${name}`;
 const CRUMBS_STUDENT = [
@@ -208,15 +209,9 @@ export function buildHistoryPrinciplesPage() {
 // ═══════════════════════════════════════════════════════════════════════════════
 //  CLASS SCHEDULE
 // ═══════════════════════════════════════════════════════════════════════════════
-export function buildClassSchedulePage() {
-  const schedule = [
-    ['MON', [['Tiny Tigers', '4:30 – 5:00 pm']]],
-    ['TUE', [['All Levels — Teen/Adult', '12:00 – 1:00 pm'], ['Little Dragons', '5:00 – 6:00 pm'], ['Youth Class', '6:00 – 7:00 pm'], ['Black Belt — Teen/Adult', '7:00 – 8:15 pm']]],
-    ['WED', [['Little Dragons', '5:00 – 6:00 pm'], ['Youth Class', '6:00 – 7:00 pm'], ['All Levels — Teen/Adult', '7:00 – 8:15 pm']]],
-    ['THU', [['All Levels — Teen/Adult', '12:00 – 1:00 pm'], ['Little Dragons', '5:00 – 6:00 pm'], ['Youth Class', '6:00 – 7:00 pm'], ['Black Belt — Teen/Adult', '7:00 – 8:15 pm']]],
-    ['FRI', [['Little Dragons', '5:00 – 6:00 pm'], ['Youth Class', '6:00 – 7:00 pm'], ['All Levels — Teen/Adult', '7:00 – 8:15 pm']]],
-    ['SAT', [['Little Dragons / Youth', '10:00 – 11:00 am'], ['All Levels — Teen/Adult', '11:00 – 12:15 pm']]],
-  ];
+export async function buildClassSchedulePage(env, docOverride) {
+  const doc = docOverride || await getPublishedDoc(env, 'schedule');
+  const schedule = (doc.days || []).map(d => [d.day, (d.classes || []).map(c => [c.name, c.time])]);
   const content = `
   ${pageHero({
     eyebrow: 'Student Information',
