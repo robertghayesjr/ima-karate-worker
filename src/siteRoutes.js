@@ -34,6 +34,8 @@ import {
   buildDojoLocationsPage,
 } from './sitePagesWorld.js';
 
+export const PAGE_PATHS = () => ['/', ...PAGES.keys()];
+
 const PAGES = new Map([
   ['/about',                        buildAboutPage],
   ['/about/history',                buildHistoryPage],

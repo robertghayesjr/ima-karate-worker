@@ -77,6 +77,7 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
 @media(max-width:980px){.panel{border-top:1px solid #1f1f23}}
 .tabs{display:flex;gap:4px;padding:12px 14px 0;border-bottom:1px solid #1f1f23}
 .tabs button{flex:1;background:none;border:0;color:#9a9a9f;padding:10px 6px;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:.8rem;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.pv-path{background:#141416;color:#f4f4f5;border:1px solid #2a2a2e;border-radius:8px;padding:8px 10px;font:inherit;font-size:.85rem;max-width:200px}
 .tabs button.on{color:#d4a24a;border-bottom-color:#d4a24a}
 .tab-body{flex:1;overflow-y:auto;padding:20px 18px 30px}
 .doc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
@@ -156,6 +157,7 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
         <button data-tab="news" class="on">News</button>
         <button data-tab="schedule">Schedule</button>
         <button data-tab="site">Site</button>
+        <button data-tab="design">Design</button>
         <button data-tab="belt">Belt Test</button>
       </div>
       <div class="tab-body" id="tab-body"></div>
@@ -273,10 +275,6 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
             addMsg('sys', '✎ Draft saved for “' + ev.key + '”' + (ev.note ? ' — ' + ev.note : '') + '. Preview it in the panel on the right, then press Publish.');
             loadDoc(ev.key);
           }
-          if (ev.type === 'change_requested') {
-            addMsg('sys', '\u2709 Change request logged: \u201c' + ev.summary + '\u201d. Track it in the Site tab under Requests.');
-            if (currentTab === 'site') loadRequests();
-          }
         });
       })
       .catch(function(e){ addMsg('sys', 'Error: ' + e.message); chatHistory.pop(); })
@@ -350,12 +348,13 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
     var k = currentTab; // 'news' | 'schedule'
     var st = docState[k] || {};
     var hasDraft = !!st.draft;
-    var label = (k === 'news' ? 'News & Events' : k === 'schedule' ? 'Class Schedule' : 'Site Settings');
+    var label = docLabel(k);
     body.innerHTML =
       '<div class="doc-head"><h2>' + label + '</h2>' +
       '<span class="badge ' + (hasDraft ? 'draft' : 'published') + '">' + (hasDraft ? 'Draft ready' : 'Published') + '</span></div>' +
       '<div class="notice">Publishing makes a new saved revision — you can always restore an older version below.</div>' +
       '<div class="doc-actions">' +
+      (k === 'design' ? '<select id="pv-path" class="pv-path">' + designPaths(st.draft || st.published).map(function(x){ return '<option>' + esc(x) + '</option>'; }).join('') + '</select>' : '') +
       '<button class="btn" id="btn-preview">Preview ' + (hasDraft ? 'Draft' : 'Live') + '</button>' +
       (hasDraft ? '<button class="btn btn-gold" id="btn-publish">Publish Draft</button><button class="btn btn-ghost" id="btn-discard">Discard Draft</button>' : '') +
       '</div>' +
@@ -367,10 +366,13 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
           }).join('')
         : '<div class="rev-item"><span>No revisions yet — the current live version is the original.</span></div>') +
       '</div>' +
-      (k === 'site' ? siteSummaryHtml(st.draft || st.published) + '<div class="rev-list"><h3>Requests</h3><div class="help">Changes Claude can\u2019t make itself (layout, design, new sections) are logged here for the site developer.</div><div id="req-list"></div></div>' : '');
-    if (k === 'site') loadRequests();
+      (k === 'site' ? siteSummaryHtml(st.draft || st.published) : '') +
+      (k === 'design' ? designSummaryHtml(st.draft || st.published) : '');
 
-    document.getElementById('btn-preview').addEventListener('click', function(){ openPreview(k); });
+    document.getElementById('btn-preview').addEventListener('click', function(){
+      var sel = document.getElementById('pv-path');
+      openPreview(k, sel ? sel.value : '');
+    });
     var pub = document.getElementById('btn-publish');
     if (pub) pub.addEventListener('click', function(){
       if (!confirm('Publish this draft to the live site?')) return;
@@ -398,30 +400,35 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
     return '<div class="rev-list"><h3>Social links</h3>' + (socials || '<div class="rev-item"><span>None</span></div>') + '</div>' +
       '<div class="rev-list"><h3>Announcement bar</h3><div class="rev-item"><span>' + (a.enabled ? esc(a.text) : 'Off') + '</span>' + (a.enabled && a.href ? '<span class="help">' + esc(a.href) + '</span>' : '') + '</div></div>';
   }
-  function loadRequests(){
-    var box = document.getElementById('req-list');
-    if (!box) return;
-    api('/admin/api/requests').then(function(j){
-      if (!j.requests.length) { box.innerHTML = '<div class="rev-item"><span>No requests yet.</span></div>'; return; }
-      box.innerHTML = j.requests.map(function(r){
-        return '<div class="rev-item" style="display:block"><div><strong>' + esc(r.summary) + '</strong> <span class="badge ' + (r.status === 'open' ? 'draft' : 'published') + '">' + esc(r.status) + '</span></div>' +
-          '<div class="help" style="white-space:pre-wrap">' + esc(r.details) + '</div>' +
-          '<div class="help">' + new Date(r.createdAt).toLocaleString() + '</div>' +
-          (r.status === 'open' ? '<button data-req="' + esc(r.id) + '" data-st="done">Mark done</button> <button data-req="' + esc(r.id) + '" data-st="dismissed">Dismiss</button>' : '') + '</div>';
-      }).join('');
-      box.querySelectorAll('button[data-req]').forEach(function(b){
-        b.addEventListener('click', function(){
-          api('/admin/api/requests/' + b.dataset.req, {method:'PATCH', body: JSON.stringify({status: b.dataset.st})}).then(loadRequests).catch(function(e){ alert(e.message); });
-        });
-      });
-    }).catch(function(e){ box.innerHTML = '<div class="help">Could not load requests: ' + esc(e.message) + '</div>'; });
+  function docLabel(k){
+    return k === 'news' ? 'News & Events' : k === 'schedule' ? 'Class Schedule' : k === 'design' ? 'Design & Pages' : 'Site Settings';
+  }
+  function designPaths(d){
+    var out = ['/'];
+    ((d && d.edits) || []).forEach(function(e){ var p = String(e.path || ''); if (p && p.indexOf('*') < 0 && out.indexOf(p) < 0) out.push(p); });
+    ((d && d.pages) || []).forEach(function(pg){ if (out.indexOf(pg.path) < 0) out.push(pg.path); });
+    return out;
+  }
+  function designSummaryHtml(d){
+    d = d || {};
+    var edits = (d.edits || []).map(function(e){
+      return '<div class="rev-item"><span>' + esc(e.note || 'Edit') + '</span><span class="help">' + esc(e.path === '*' ? 'every page' : e.path) + '</span></div>';
+    }).join('');
+    var pages = (d.pages || []).map(function(pg){
+      return '<div class="rev-item"><span>' + esc(pg.title) + '</span><span class="help">' + esc(pg.path) + '</span></div>';
+    }).join('');
+    var css = (d.css || '').trim();
+    return '<div class="help" style="margin-top:14px">Ask Claude for any change: colors, fonts, layout, wording on any page, new sections, menu links, or new pages.</div>' +
+      '<div class="rev-list"><h3>Page edits</h3>' + (edits || '<div class="rev-item"><span>None yet</span></div>') + '</div>' +
+      '<div class="rev-list"><h3>New pages</h3>' + (pages || '<div class="rev-item"><span>None yet</span></div>') + '</div>' +
+      '<div class="rev-list"><h3>Custom styling</h3><div class="rev-item"><span>' + (css ? css.split('}').length - 1 + ' style rules' : 'None') + '</span></div></div>';
   }
 
-  function openPreview(k){
+  function openPreview(k, path){
     var modal = document.getElementById('preview-modal');
-    document.getElementById('pv-title').textContent = 'Preview — ' + (k === 'news' ? 'News & Events' : k === 'schedule' ? 'Class Schedule' : 'Site Settings');
+    document.getElementById('pv-title').textContent = 'Preview — ' + docLabel(k) + (path ? ' — ' + path : '');
     document.getElementById('pv-publish').style.display = (docState[k] && docState[k].draft) ? '' : 'none';
-    document.getElementById('preview-frame').src = '/admin/api/preview/' + k;
+    document.getElementById('preview-frame').src = '/admin/api/preview/' + k + (path ? '?path=' + encodeURIComponent(path) : '');
     modal.classList.add('open');
     document.getElementById('pv-publish').onclick = function(){
       if (!confirm('Publish this draft to the live site?')) return;
@@ -449,84 +456,11 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
       '<div class="field"><label>Student manual add-on ($)</label><input id="cf-manual" type="number" step="1" value="' + esc(dollars(c.manualAddonCents)) + '" /></div>' +
       '<div class="field"><label>Credit-card surcharge (%)</label><input id="cf-cc" type="number" step="0.1" value="' + esc(f(c.ccSurchargePct)) + '" /></div>' +
       '<div class="field full"><label>Testing location</label><input id="cf-location" value="' + esc(f(c.location)) + '" /></div>' +
-      '<div class="field full"><label>DocuSign template ID <span style="color:#777">(optional)</span></label><input id="cf-template" value="' + esc(f(c.docusignTemplateId)) + '" /></div>' +
       '</div>' +
       '<div class="save-note" id="cf-note"></div>' +
       '<div class="doc-actions" style="margin-top:16px"><button class="btn btn-gold" id="cf-save">Save Settings</button></div>' +
-      '<div class="doc-head" style="margin-top:32px"><h2>DocuSign Waivers</h2><span class="badge published">Stored in DocuSign</span></div>' +
-      '<div class="notice">Signed waivers live in DocuSign. Edit the waiver wording in DocuSign under Templates, and find every waiver in DocuSign under Agreements (folder: IMA Belt Tests).</div>' +
-      '<div class="rev-item" id="ds-status"><span>Checking DocuSign connection...</span></div>' +
-      '<div class="doc-actions"><button class="btn btn-gold" id="ds-connect">Connect DocuSign</button><button class="btn" id="ds-sandbox">Connect sandbox</button><button class="btn" id="ds-golive" style="display:none">Run Go-Live test calls</button><button class="btn btn-ghost" id="ds-disconnect" style="display:none">Disconnect</button><button class="btn" id="ds-test">Check connection</button><button class="btn" id="ds-template">Set up template in DocuSign</button><button class="btn" id="ds-refresh">Refresh waivers</button></div>' +
-      '<div class="save-note" id="ds-note"></div>' +
-      '<div id="ds-list"></div>';
+      '';
 
-    var dsNote = function(t){ document.getElementById('ds-note').textContent = t; };
-    var loadDsStatus = function(){
-      api('/admin/api/docusign/status').then(function(st){
-        var el = document.getElementById('ds-status');
-        if (!el) return;
-        el.innerHTML = st.connected
-          ? '<span><span class="badge ' + (st.sandbox ? 'draft' : 'published') + '">' + (st.sandbox ? 'Connected: sandbox' : 'Connected: live') + '</span> ' + esc(st.userName || st.email) + (st.accountName ? ' &middot; ' + esc(st.accountName) : '') + '</span><span class="help">since ' + new Date(st.connectedAt).toLocaleDateString() + (st.lastError ? ' &middot; last refresh failed, reconnect' : '') + '</span>'
-          : '<span><span class="badge draft">Not connected</span> Click Connect DocuSign and sign in once with the DocuSign account that should send waivers.</span>';
-        document.getElementById('ds-connect').textContent = st.connected ? 'Reconnect' : 'Connect DocuSign';
-        document.getElementById('ds-disconnect').style.display = st.connected ? '' : 'none';
-        document.getElementById('ds-golive').style.display = (st.connected && st.sandbox) ? '' : 'none';
-      }).catch(function(e){ dsNote('Could not read DocuSign status: ' + e.message); });
-    };
-    loadDsStatus();
-    document.getElementById('ds-connect').addEventListener('click', function(){
-      dsNote('Opening DocuSign sign-in...');
-      api('/admin/api/docusign/connect', {method:'POST'})
-        .then(function(j){ window.location.href = j.url; })
-        .catch(function(e){ dsNote('Could not start sign-in: ' + e.message); });
-    });
-    document.getElementById('ds-sandbox').addEventListener('click', function(){
-      dsNote('Opening DocuSign sandbox sign-in...');
-      api('/admin/api/docusign/connect', {method:'POST', body: JSON.stringify({sandbox: true})})
-        .then(function(j){ window.location.href = j.url; })
-        .catch(function(e){ dsNote('Could not start sign-in: ' + e.message); });
-    });
-    document.getElementById('ds-golive').addEventListener('click', function(){
-      dsNote('Running Go-Live test calls (draft envelopes, nothing is emailed)...');
-      api('/admin/api/docusign/golive-calls', {method:'POST'})
-        .then(function(j){ dsNote(j.ok ? ('Done: ' + j.calls + ' successful calls. In the DocuSign developer Apps and Keys page, choose Actions, then Start Go-Live.') : ('Some calls failed: ' + (j.errors || []).slice(0, 2).join(' / '))); })
-        .catch(function(e){ dsNote('Go-Live calls failed: ' + e.message); });
-    });
-    document.getElementById('ds-disconnect').addEventListener('click', function(){
-      if (!confirm('Disconnect DocuSign? Waivers will stop sending until you connect again.')) return;
-      api('/admin/api/docusign/disconnect', {method:'POST'}).then(function(){ dsNote('Disconnected.'); loadDsStatus(); }).catch(function(e){ dsNote(e.message); });
-    });
-    document.getElementById('ds-test').addEventListener('click', function(){
-      dsNote('Checking...');
-      api('/admin/api/belt-config/docusign-test', {method:'POST'})
-        .then(function(j){ dsNote(j.ok ? 'Connected to DocuSign.' : ('Not connected: ' + (j.hint || j.error))); })
-        .catch(function(e){ dsNote('Not connected: ' + e.message); });
-    });
-    document.getElementById('ds-template').addEventListener('click', function(){
-      dsNote('Setting up template...');
-      api('/admin/api/docusign/template', {method:'POST'})
-        .then(function(j){
-          beltConfig = Object.assign({}, beltConfig, {docusignTemplateId: j.templateId});
-          document.getElementById('cf-template').value = j.templateId;
-          dsNote((j.created ? 'Template created in DocuSign: ' : 'Using existing DocuSign template: ') + j.name);
-        })
-        .catch(function(e){ dsNote('Template setup failed: ' + e.message); });
-    });
-    var loadWaivers = function(){
-      var box = document.getElementById('ds-list');
-      box.innerHTML = '<div class="help">Loading waivers from DocuSign...</div>';
-      api('/admin/api/docusign/waivers').then(function(j){
-        if (!j.waivers.length) { box.innerHTML = '<div class="help">No belt-test waivers sent yet.</div>'; return; }
-        box.innerHTML = '<table class="ds-table"><thead><tr><th>Student</th><th>Belt</th><th>Test date</th><th>Status</th><th></th></tr></thead><tbody>' +
-          j.waivers.map(function(w){
-            return '<tr><td>' + esc(w.student) + '<div class="help">' + esc(w.email) + '</div></td><td>' + esc(w.beltTier) + '</td><td>' + esc(w.testDate) + '</td>' +
-              '<td><span class="badge ' + (w.status === 'completed' ? 'published' : 'draft') + '">' + esc(w.status) + '</span></td>' +
-              '<td><a href="https://app.docusign.com/documents/details/' + encodeURIComponent(w.envelopeId) + '" target="_blank" rel="noopener">Open in DocuSign</a></td></tr>';
-          }).join('') + '</tbody></table>';
-      }).catch(function(e){ box.innerHTML = '<div class="help">Could not load waivers: ' + esc(e.message) + '</div>'; });
-    };
-    document.getElementById('ds-refresh').addEventListener('click', loadWaivers);
-    loadWaivers();
 
     document.getElementById('cf-save').addEventListener('click', function(){
       var patch = {
@@ -538,8 +472,6 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
         ccSurchargePct: Number(document.getElementById('cf-cc').value) || 0,
         location: document.getElementById('cf-location').value.trim(),
       };
-      var tpl = document.getElementById('cf-template').value.trim();
-      if (tpl) patch.docusignTemplateId = tpl;
       api('/admin/api/belt-config', {method:'PUT', body: JSON.stringify(patch)})
         .then(function(j){ beltConfig = j.config; document.getElementById('cf-note').textContent = '✓ Saved — live immediately.'; })
         .catch(function(e){ document.getElementById('cf-note').textContent = '✗ ' + e.message; });
@@ -561,9 +493,9 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
       if (!claudeConnected) {
         addMsg('sys', 'Claude is not connected yet — the site owner needs to add an Anthropic API key (ANTHROPIC_API_KEY secret) to the Worker. You can still use the panels on the right.');
       } else {
-        addMsg('bot', 'Hi! I can help you update the website — news, announcements, and the class schedule. Try: “Add a news item about the upcoming tournament.” Attach a photo and tell me where it should go.');
+        addMsg('bot', 'Hi! I can change anything on the website: news, the class schedule, wording on any page, colors and layout, menu links, or whole new pages. Try: “Make the home page headline bigger” or “Add a Summer Camp page to the menu.” Attach a photo and tell me where it should go. Every change is a draft you preview before it goes live.');
       }
-      return Promise.all(['news','schedule','site'].map(loadDoc));
+      return Promise.all(['news','schedule','site','design'].map(loadDoc));
     }).then(function(){ renderTab(); }).catch(function(e){ addMsg('sys', 'Could not load admin state: ' + e.message); });
   }
 

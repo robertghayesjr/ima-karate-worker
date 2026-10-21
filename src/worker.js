@@ -27,7 +27,8 @@ import { handleSiteRoutes } from './siteRoutes.js';
 import { handleAdminRoutes } from './adminRoutes.js';
 import { applySiteSettings } from './siteSettings.js';
 import { getPublishedDoc } from './contentDocs.js';
-import { docusignKeepAlive } from './docusign.js';
+import { applyDesign, findCustomPage } from './siteDesign.js';
+import { renderCustomPage } from './pageRender.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -36,11 +37,6 @@ const CORS_HEADERS = {
 };
 
 export default {
-  // Daily: keep the DocuSign sign-in alive (refresh token renews 30 days per use).
-  async scheduled(event, env, ctx) {
-    ctx.waitUntil(docusignKeepAlive(env).then((r) => console.log('docusign keepalive', JSON.stringify(r))));
-  },
-
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
 
@@ -64,7 +60,7 @@ export default {
 
     // ── Rebuilt site pages (new theme, served directly by the Worker) ────────
     const siteRes = await handleSiteRoutes(request, env, url);
-    if (siteRes) return withSiteSettings(siteRes, env);
+    if (siteRes) return withSiteSettings(siteRes, env, url.pathname);
 
     // ── Belt-testing flow (page + JSON API + admin route) ───────────────────
     if (url.pathname === '/belt-testing' ||
@@ -72,7 +68,7 @@ export default {
         url.pathname === '/__admin/belt-testing') {
       try {
         const res = await handleBeltTestingRoutes(request, env, url);
-        if (res) return withSiteSettings(res, env);
+        if (res) return withSiteSettings(res, env, url.pathname);
       } catch (e) {
         console.error('belt-testing route error', e);
         return json({ error: e.message || 'Belt-testing route failed' }, 500);
@@ -98,23 +94,40 @@ export default {
       return handleScriptUpload(request, env);
     }
 
+    // ── Pages created in the admin (design doc) ─────────────────────────────
+    if (request.method === 'GET' || request.method === 'HEAD') {
+      try {
+        const pg = findCustomPage(await getPublishedDoc(env, 'design'), url.pathname);
+        if (pg) {
+          return withSiteSettings(new Response(renderCustomPage(pg), {
+            headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300', 'x-ima-worker': 'design-page' },
+          }), env, url.pathname);
+        }
+      } catch (e) { console.warn('custom page lookup failed:', e.message); }
+    }
+
     // ── Everything else: proxy Webflow origin and rewrite ────────────────────
     return proxyAndRewrite(request, env);
   },
 };
 
-// Apply the published "site" doc (social links, announcement bar) to Worker-
-// rendered HTML. Any failure leaves the page's built-in defaults in place.
-async function withSiteSettings(res, env) {
+// Apply the published "site" doc (social links, announcement bar) and the
+// published "design" doc (css, edits) to Worker-rendered HTML. Any failure
+// leaves the page's built-in version in place.
+async function withSiteSettings(res, env, path) {
   const type = res.headers.get('Content-Type') || '';
   if (!type.includes('text/html') || res.status !== 200) return res;
   const html = await res.text();
-  if (!html.includes('<!--ima:')) return new Response(html, res);
   let out = html;
   try {
-    out = applySiteSettings(html, await getPublishedDoc(env, 'site'));
+    if (out.includes('<!--ima:')) out = applySiteSettings(out, await getPublishedDoc(env, 'site'));
   } catch (e) {
     console.warn('site settings not applied:', e.message);
+  }
+  try {
+    out = applyDesign(out, await getPublishedDoc(env, 'design'), path).html;
+  } catch (e) {
+    console.warn('design not applied:', e.message);
   }
   return new Response(out, res);
 }

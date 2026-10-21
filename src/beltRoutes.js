@@ -19,8 +19,7 @@ import {
 } from './memberstack.js';
 import { buildBeltTestingPage } from './beltTestingPage.js';
 import { buildBeltTestThankYou } from './beltThankYou.js';
-import { sendBeltTestEnvelope, verifyConnectSignature, getEnvelopeSummary, BELT_TEST_SOURCE } from './docusign.js';
-import { buildMockStripePage, buildMockDocusignPage } from './beltMockPages.js';
+import { buildMockStripePage } from './beltMockPages.js';
 
 function isDemoMode(env) {
   return env.DEMO_MODE === '1' || env.DEMO_MODE === 'true';
@@ -86,27 +85,22 @@ export async function handleBeltTestingRoutes(request, env, url) {
     return html(buildBeltTestingPage(cfg));
   }
 
-  // Thank-you (after DocuSign complete)
+  // Thank-you (after payment)
   if (p === '/belt-testing/thank-you') {
     const cfg = await getBeltConfig(env);
     return html(buildBeltTestThankYou(cfg));
   }
 
-  // Post-payment landing — Memberstack redirects here after Stripe success.
-  // We fire the DocuSign envelope and forward the signer into the DocuSign
-  // signing URL that Zapier returned to us (via KV lookup by memberId).
+  // Post-payment landing — checkout redirects here after payment success.
   if (p === '/belt-testing/post-payment') {
     return handlePostPayment(request, env, url);
   }
 
-  // Mock Stripe / DocuSign pages — demo mode ONLY. In production these
-  // routes do not exist (404) so the mock flow can never stand in for the
-  // real payment or signing services.
-  if ((p === '/belt-testing/mock-stripe' || p === '/belt-testing/mock-docusign')) {
+  // Mock Stripe page — demo mode ONLY. In production this route does not
+  // exist (404) so the mock flow can never stand in for real payment.
+  if (p === '/belt-testing/mock-stripe') {
     if (!isDemoMode(env)) return new Response('Not found', { status: 404 });
-    return p === '/belt-testing/mock-stripe'
-      ? handleMockStripe(request, env, url)
-      : handleMockDocusign(request, env, url);
+    return handleMockStripe(request, env, url);
   }
 
   // ── JSON API ─────────────────────────────────────────────────────────────
@@ -120,13 +114,6 @@ export async function handleBeltTestingRoutes(request, env, url) {
   if (p === '/belt-testing/signup')       return apiSignup(request, env);
   if (p === '/belt-testing/checkout')     return apiCheckout(request, env);
   if (p === '/belt-testing/webhook/paid') return apiWebhookPaid(request, env);
-  if (p === '/belt-testing/webhook/signed') return apiWebhookSigned(request, env);
-  if (p === '/belt-testing/docusign-connect') return apiDocusignConnect(request, env);
-  if (p === '/belt-testing/mock-docusign-complete') {
-    if (!isDemoMode(env)) return json({ error: 'Not found' }, 404);
-    return apiMockDocusignComplete(request, env);
-  }
-
   return null;
 }
 
@@ -309,12 +296,8 @@ async function apiCheckout(request, env) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  GET /belt-testing/post-payment?memberId=…
-//  Memberstack redirects here after Stripe success. We:
-//    1. Mark the member as paid in Memberstack.
-//    2. Fire the Zapier webhook to create a DocuSign envelope with pre-filled
-//       fields. Zapier returns the signing URL to the user via email or an
-//       embedded signing link in the envelope; we redirect the user to an
-//       interstitial that tells them to check their email.
+//  Checkout redirects here after payment. We mark the member as paid and
+//  send them to the confirmation page.
 // ─────────────────────────────────────────────────────────────────────────────
 async function handlePostPayment(request, env, url) {
   const memberId = url.searchParams.get('memberId');
@@ -329,8 +312,7 @@ async function handlePostPayment(request, env, url) {
 
   // HARDENING: only mark the member paid when the one-time checkout token
   // from our own checkout URL is presented — an arbitrary GET (or a stale
-  // bookmark) can no longer flip the paid flag. The same token gates the
-  // DocuSign envelope below.
+  // bookmark) can no longer flip the paid flag.
   const tokenOk = !!(stash?.checkoutToken && token && stash.checkoutToken === token);
   const markPaid = tokenOk && canWriteMember(env, memberId);
   if (markPaid) {
@@ -343,152 +325,9 @@ async function handlePostPayment(request, env, url) {
     console.warn(`post-payment: paid flag NOT set for ${memberId} — checkout token missing/mismatched`);
   }
 
-  // Send DocuSign envelope directly (JWT auth from Worker) — replaces the
-  // former Zapier hop. On failure we still show the interstitial so the user
-  // isn't stranded; they'll just get a manual email from us.
-  // HARDENING: idempotent — a page refresh does not send a second envelope.
-  // Demo mode skips DocuSign entirely and shows a mock-signing CTA instead.
-  let docusignError = null;
-  if (stash && !demo && tokenOk) {
-    const sentKey = `docusign-sent:${memberId}`;
-    const alreadySent = await env.IMA_KARATE.get(sentKey);
-    if (alreadySent) {
-      console.log(`post-payment: envelope already sent for ${memberId}, skipping resend`);
-    } else {
-      const member = await getMember(env, memberId).catch(() => null);
-      const payload = buildDocusignPayload(stash, member, cfg);
-      try {
-        // Claim the sent-flag BEFORE sending to narrow the concurrent-request
-        // race window; remove it if the send fails so a retry is possible.
-        await env.IMA_KARATE.put(sentKey, JSON.stringify({
-          state: 'sending', sentAt: new Date().toISOString(),
-        }), { expirationTtl: 60 * 60 * 24 * 7 });
-        const result = await sendBeltTestEnvelope(env, payload);
-        try {
-          await env.IMA_KARATE.put(
-            `envelope:${result.envelopeId}`,
-            JSON.stringify({ memberId, ...payload.metadata }),
-            { expirationTtl: 60 * 60 * 24 * 30 },
-          );
-          await env.IMA_KARATE.put(sentKey, JSON.stringify({
-            state: 'sent', envelopeId: result.envelopeId,
-            sentAt: new Date().toISOString(),
-          }), { expirationTtl: 60 * 60 * 24 * 7 });
-        } catch (e) { console.warn('envelope stash failed:', e.message); }
-      } catch (e) {
-        console.error('DocuSign send failed:', e.message);
-        docusignError = e.message;
-        await env.IMA_KARATE.delete(sentKey).catch(() => {});
-      }
-    }
-  } else if (stash && !demo && !tokenOk) {
-    console.warn(`post-payment: DocuSign NOT sent for ${memberId} — checkout token missing/mismatched`);
-  }
-
-  // Interstitial: tell them to check their inbox and sign, then go to thank-you.
-  return html(buildSigningInterstitial(cfg, stash, docusignError, memberId, demo));
-}
-
-function buildDocusignPayload(app, member, cfg) {
-  // Field names in this payload must match the tab labels set on your
-  // DocuSign template. Update Zap or template if names differ.
-  const cf = member?.customFields || {};
-  return {
-    templateId: cfg.docusignTemplateId || null, // set in admin Belt Test tab
-    signerEmail: app.email,
-    signerName: `${app.firstName || ''} ${app.lastName || ''}`.trim(),
-    testDate: cfg.testDate,
-    testDateDisplay: cfg.testDateDisplay,
-    testingTime: app.testingTime || '',
-    location: cfg.location,
-    tabs: {
-      salutation: app.salutation || '',
-      first_name: app.firstName || '',
-      middle_name: app.middleName || '',
-      last_name: app.lastName || '',
-      age: app.age || '',
-      membership_number: app.membershipNumber || '',
-      present_belt: app.presentBelt || '',
-      email: app.email || '',
-      phone: app.phone || '',
-      dojo: app.dojo || '',
-      tier_label: app.tierLabel || '',
-      tier_id: app.tierId || '',
-      base_amount: (app.baseCents / 100).toFixed(2),
-      manual_amount: (app.manualCents / 100).toFixed(2),
-      late_amount: (app.lateCents / 100).toFixed(2),
-      total_amount: (app.totalCents / 100).toFixed(2),
-      wants_manual: app.wantsManual ? 'Yes' : 'No',
-      is_late: app.isLate ? 'Yes' : 'No',
-      test_date: cfg.testDateDisplay,
-      testing_time: app.testingTime || '',
-      dojo_location: cfg.location,
-    },
-    metadata: {
-      memberId: member?.id || null,
-      applicationCreatedAt: app.createdAt,
-    },
-  };
-}
-
-function buildSigningInterstitial(cfg, app, docusignError, memberId, demo) {
-  const nameLine = app ? `${app.firstName || ''} ${app.lastName || ''}`.trim() : '';
-  const safeName = nameLine.replace(/[<>&"']/g, '');
-
-  // In demo mode, skip the email step and link straight to the mock signing page.
-  if (demo) {
-    return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Ready to sign — IMA Karate</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<style>body{margin:0;background:#0a0a0a;color:#f4f4f5;font-family:'Inter',sans-serif;min-height:100vh;display:grid;place-items:center;padding:24px}
-.demo-banner{position:fixed;top:0;left:0;right:0;background:#f59e0b;color:#1a1f36;text-align:center;padding:8px;font-size:.82rem;font-weight:600}
-.card{max-width:560px;text-align:center;margin-top:40px}.eyebrow{color:#d4a24a;letter-spacing:.3em;text-transform:uppercase;font-size:.8rem;font-weight:600;margin:0 0 8px}
-h1{font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:2rem;margin:0 0 16px}
-.lead{color:#b5b5b8;font-size:1.05rem;line-height:1.6}
-.card > div{background:#131313;border-left:3px solid #4caf50;padding:20px;text-align:left;margin:24px 0;border-radius:3px}
-a.btn{display:inline-block;background:#c8102e;color:#fff;padding:14px 32px;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.06em;text-decoration:none;font-weight:700;border-radius:2px;font-size:1.05rem}</style>
-</head><body>
-<div class="demo-banner">DEMO MODE — in production, a DocuSign email is sent automatically</div>
-<div class="card">
-<p class="eyebrow">Payment confirmed</p>
-<h1>Ready to sign your waiver</h1>
-<p class="lead">Thanks${nameLine ? `, ${safeName}` : ''} — your ${escStr(cfg.testDateDisplay)} belt-test payment is confirmed. Next step: sign the liability waiver, pre-filled with your details.</p>
-<div><b style="color:#d4a24a">In production, the flow is:</b>
-<ol style="margin:8px 0 0;padding-left:20px;color:#b5b5b8;line-height:1.7">
-<li>Applicant receives a DocuSign email at <b>${escStr(app?.email || 'your inbox')}</b>.</li>
-<li>Applicant clicks <b>Review Document</b> — all 21 fields are pre-filled.</li>
-<li>Applicant signs; DocuSign notifies our Worker via webhook.</li>
-<li>Applicant lands on the ${escStr(cfg.testDateDisplay)} confirmation page.</li>
-</ol></div>
-<a class="btn" href="/belt-testing/mock-docusign?memberId=${encodeURIComponent(memberId || '')}">Open the waiver &rarr;</a>
-</div></body></html>`;
-  }
-
-  return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Check your inbox — IMA Karate</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<style>body{margin:0;background:#0a0a0a;color:#f4f4f5;font-family:'Inter',sans-serif;min-height:100vh;display:grid;place-items:center;padding:24px}
-.card{max-width:560px;text-align:center}.eyebrow{color:#d4a24a;letter-spacing:.3em;text-transform:uppercase;font-size:.8rem;font-weight:600;margin:0 0 8px}
-h1{font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:2rem;margin:0 0 16px}
-.lead{color:#b5b5b8;font-size:1.05rem;line-height:1.6}
-.card > div{background:#131313;border-left:3px solid #c8102e;padding:20px;text-align:left;margin:24px 0;border-radius:3px}
-a.btn{display:inline-block;background:#c8102e;color:#fff;padding:12px 28px;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.06em;text-decoration:none;font-weight:700;border-radius:2px}</style>
-</head><body><div class="card">
-<p class="eyebrow">Payment received</p>
-<h1>Now check your inbox</h1>
-<p class="lead">Thanks${nameLine ? `, ${safeName}` : ''} — your payment is confirmed. A DocuSign email is on its way from IMA Karate with your testing waiver, pre-filled with your details.</p>
-<div><b style="color:#d4a24a">What to do next</b>
-<ol style="margin:8px 0 0;padding-left:20px;color:#b5b5b8;line-height:1.7">
-<li>Open the DocuSign email (from <b>dse_NA4@docusign.net</b> — check spam if you don't see it).</li>
-<li>Review, then click <b>Sign</b> — everything is pre-filled from your form.</li>
-<li>Once you sign, you'll land on our confirmation page for the ${escStr(cfg.testDateDisplay)} test.</li>
-</ol></div>
-<a class="btn" href="/belt-testing/thank-you">I've signed — take me to the confirmation</a>
-</div></body></html>`;
+  // No waiver step: payment confirmed → confirmation page.
+  const done = new URL('/belt-testing/thank-you', request.url);
+  return Response.redirect(done.toString(), 303);
 }
 
 function escStr(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
@@ -520,66 +359,6 @@ async function apiWebhookPaid(request, env) {
   return json({ ok: true });
 }
 
-// POST /belt-testing/webhook/signed — legacy Zapier hook target. Still
-// supported for any external tool that wants to force a member's
-// belt-test-signed flag; expects { memberId, envelopeId? }.
-async function apiWebhookSigned(request, env) {
-  const auth = webhookAuthorized(request, env);
-  if (!auth.ok) return json({ error: auth.error }, auth.status);
-  const body = await request.json().catch(() => null);
-  if (!body?.memberId) return json({ error: 'memberId required' }, 400);
-  if (!canWriteMember(env, body.memberId)) return json({ ok: true, skipped: 'demo-mode' });
-  await recordBeltTestProgress(env, body.memberId, {
-    signed: true,
-    envelopeId: body.envelopeId,
-  });
-  return json({ ok: true });
-}
-
-// POST /belt-testing/docusign-connect — DocuSign status callback.
-// Each envelope registers this URL itself (eventNotification), so no
-// account-level Connect setup is needed. The payload is never trusted: we
-// re-fetch the envelope from DocuSign with our own credentials and only act
-// on envelopes the site sent (custom field Source = ima-belt-test).
-async function apiDocusignConnect(request, env) {
-  const raw = await request.text();
-  const sigHeader = request.headers.get('x-docusign-signature-1') || '';
-  if (env.DOCUSIGN_CONNECT_HMAC_KEY && !(await verifyConnectSignature(env, raw, sigHeader))) {
-    return json({ error: 'Invalid signature' }, 401);
-  }
-  let body;
-  try { body = JSON.parse(raw); } catch { return json({ error: 'Invalid JSON' }, 400); }
-  const envelopeId = String(body?.data?.envelopeId || body?.envelopeId || '');
-  if (!/^[0-9a-f-]{36}$/i.test(envelopeId)) return json({ error: 'missing envelopeId' }, 400);
-
-  let summary;
-  try {
-    summary = await getEnvelopeSummary(env, envelopeId);
-  } catch (e) {
-    console.warn('docusign-connect: verify fetch failed:', e.message);
-    return json({ error: 'verification failed' }, 502); // DocuSign retries
-  }
-  if (summary.fields.Source !== BELT_TEST_SOURCE) return json({ ok: true, ignored: 'not a belt-test envelope' });
-
-  let memberId = summary.fields.memberId || '';
-  if (!memberId) {
-    const stash = await env.IMA_KARATE.get(`envelope:${envelopeId}`);
-    if (stash) { try { memberId = JSON.parse(stash).memberId || ''; } catch {} }
-  }
-  try {
-    await env.IMA_KARATE.put(`envelope-status:${envelopeId}`, JSON.stringify({
-      memberId, status: summary.status, completedDateTime: summary.completedDateTime, updatedAt: new Date().toISOString(),
-    }), { expirationTtl: 60 * 60 * 24 * 400 });
-  } catch {}
-
-  if (memberId && summary.status === 'completed' && canWriteMember(env, memberId)) {
-    await recordBeltTestProgress(env, memberId, { signed: true, envelopeId }).catch((e) =>
-      console.warn('mark signed failed:', e.message),
-    );
-  }
-  return json({ ok: true, envelopeId, status: summary.status });
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  Mock Stripe checkout page (DEMO_MODE only).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -590,35 +369,6 @@ async function handleMockStripe(request, env, url) {
   const stashRaw = await env.IMA_KARATE.get(`application:${memberId}`);
   const stash = stashRaw ? JSON.parse(stashRaw) : null;
   return html(buildMockStripePage(stash, memberId, cfg, url.searchParams.get('token')));
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Mock DocuSign signing page (DEMO_MODE only).
-// ─────────────────────────────────────────────────────────────────────────────
-async function handleMockDocusign(request, env, url) {
-  const memberId = url.searchParams.get('memberId');
-  if (!memberId) return new Response('Missing memberId', { status: 400 });
-  const cfg = await getBeltConfig(env);
-  const stashRaw = await env.IMA_KARATE.get(`application:${memberId}`);
-  const stash = stashRaw ? JSON.parse(stashRaw) : null;
-  return html(buildMockDocusignPage(stash, memberId, cfg));
-}
-
-// POST /belt-testing/mock-docusign-complete — mark demo member as signed
-// (only records progress if the memberId looks like a real Memberstack ID).
-async function apiMockDocusignComplete(request, env) {
-  const body = await request.json().catch(() => null);
-  const memberId = body?.memberId;
-  if (!memberId) return json({ error: 'memberId required' }, 400);
-  // Guarded: demo mode never writes to real Memberstack members.
-  if (canWriteMember(env, memberId)) {
-    try {
-      await recordBeltTestProgress(env, memberId, { signed: true });
-    } catch (e) {
-      console.warn('mock-docusign-complete: mark signed failed:', e.message);
-    }
-  }
-  return json({ ok: true, memberId });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

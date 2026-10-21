@@ -338,7 +338,7 @@ export function buildBeltTestingPage() {
         <div style="background:#131313;border:1px solid #232327;border-top:3px solid #c8102e;border-radius:6px;padding:30px;position:sticky;top:110px">
           <p class="eyebrow">Next belt test</p>
           <h2 class="sec" style="font-size:1.5rem">Register Online</h2>
-          <p style="color:#b0b0b4;font-size:.92rem">Sign up and pay for the next Kyu belt test in minutes — the waiver is signed online through DocuSign.</p>
+          <p style="color:#b0b0b4;font-size:.92rem">Sign up and pay for the next Kyu belt test online in minutes.</p>
           <ul class="check-list" style="margin-bottom:22px">
             <li>Eight Kyu tests per year</li>
             <li>Two Dan tests per year</li>

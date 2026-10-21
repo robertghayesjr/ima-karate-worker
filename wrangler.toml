@@ -78,6 +78,5 @@ id = "b88e14c597dc445c8aa8061dba031e90"
 # binding = "SCRIPTS"
 # id = "REPLACE_WITH_KV_NAMESPACE_ID"
 
-# Daily DocuSign keep-alive (refresh token)
 [triggers]
-crons = ["17 10 * * *"]
+crons = []

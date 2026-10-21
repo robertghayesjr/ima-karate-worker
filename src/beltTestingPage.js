@@ -7,8 +7,7 @@
 //      2. student + guardian details
 //      3. Memberstack lookup (email → name fallback → create-account modal)
 //      4. Memberstack one-time-plan checkout
-//      5. Zapier → DocuSign envelope (fields pre-filled)
-//      6. redirect to /belt-testing/thank-you
+//      5. redirect to /belt-testing/thank-you
 //
 //  All fetches hit our own Worker routes under /belt-testing/*.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -147,7 +146,7 @@ export function buildBeltTestingPage(cfg) {
       <h2>Sign up for the ${esc(cfg.testDateDisplay)} test</h2>
       <p class="lead">
         Fees include an IMA certificate of rank and a new belt. The first test also includes an IMA patch.
-        Payment goes through our secure processor; the DocuSign waiver is emailed to you immediately after checkout.
+        Payment goes through our secure processor.
       </p>
 
       <form id="bt-form" novalidate>
@@ -219,8 +218,7 @@ export function buildBeltTestingPage(cfg) {
         <div class="cta-row">
           <button type="submit" class="btn-primary btn-lg" id="bt-submit">Continue to checkout</button>
           <p class="fine">
-            You'll confirm your IMA account (or create one), pay for your test, then sign the DocuSign
-            testing waiver — all in one flow. Questions? Call
+            You'll confirm your IMA account (or create one), then pay for your test. Questions? Call
             <a href="tel:+13036650339">${esc(cfg.phone)}</a> or email
             <a href="mailto:${esc(cfg.email)}">${esc(cfg.email)}</a>.
           </p>

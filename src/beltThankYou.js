@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  /belt-testing/thank-you — post-signature confirmation page. Reads the
+//  /belt-testing/thank-you — post-payment confirmation page. Reads the
 //  current belt-test date from config so it stays accurate between tests.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ export function buildBeltTestThankYou(cfg) {
     <div class="badge">✓</div>
     <p class="eyebrow">Belt test confirmed</p>
     <h1>You're all set.</h1>
-    <p class="lead">Payment received and DocuSign waiver signed. See you on the mat.</p>
+    <p class="lead">Payment received. See you on the mat.</p>
 
     <div class="date-card">
       <h2>Your test</h2>
@@ -64,7 +64,6 @@ export function buildBeltTestThankYou(cfg) {
     </div>
 
     <ol class="steps">
-      <li>Confirmation email is on its way<small>Includes your signed waiver PDF, test date, and arrival details.</small></li>
       <li>Review the required techniques<small>Check your Student Progress Manual for your next-belt requirements. Ask your instructor if anything is unclear.</small></li>
       <li>Arrive 15 minutes early on test day<small>Dressed in a clean gi, present belt, and IMA patch visible.</small></li>
     </ol>

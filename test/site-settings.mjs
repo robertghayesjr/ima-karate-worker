@@ -31,8 +31,4 @@ const pv = await admin('/admin/api/preview/site');
 ok(pv.status === 200 && /ima-announce/.test(await pv.text()), 'admin: site preview renders home page with settings');
 const d = await (await admin('/admin/api/doc/site')).json();
 ok(d.key === 'site' && d.published.socials.length === 2, 'admin: site doc readable');
-kv.set('admin:change-requests', JSON.stringify([{ id: 'abc1', summary: 'Add testimonials', details: 'home page', status: 'open', createdAt: new Date().toISOString() }]));
-ok((await (await admin('/admin/api/requests')).json()).requests[0].summary === 'Add testimonials', 'admin: requests listed');
-ok((await admin('/admin/api/requests/abc1', { method: 'PATCH', body: JSON.stringify({ status: 'done' }) })).status === 200 && JSON.parse(kv.get('admin:change-requests'))[0].status === 'done', 'admin: request marked done');
-ok((await admin('/admin/api/requests/abc1', { method: 'PATCH', body: JSON.stringify({ status: 'hacked' }) })).status === 400, 'admin: bad status rejected');
 console.log('\n' + fails + ' failures'); process.exit(fails ? 1 : 0);

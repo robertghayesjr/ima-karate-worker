@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { DEFAULT_SITE_DOC, SOCIAL_ICONS } from './siteSettings.js';
+import { DEFAULT_DESIGN_DOC, validateDesign } from './siteDesign.js';
 
 const MAX_REVISIONS = 30;
 
@@ -82,6 +83,7 @@ export const DEFAULT_DOCS = {
     ],
   },
   site: DEFAULT_SITE_DOC,
+  design: DEFAULT_DESIGN_DOC,
 };
 
 export const CONTENT_KEYS = Object.keys(DEFAULT_DOCS);
@@ -150,6 +152,7 @@ export function validateDoc(docKey, doc) {
       }
     }
   }
+  if (docKey === 'design') return validateDesign(doc);
   if (docKey === 'site') {
     if (!Array.isArray(doc.socials)) return fail('site.socials must be an array');
     if (doc.socials.length > 8) return fail('Too many social links (max 8)');

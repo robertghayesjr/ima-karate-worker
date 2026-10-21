@@ -20,7 +20,6 @@
  * @property {number} lateFeeCents          e.g. 5000
  * @property {number} manualAddonCents      e.g. 3000
  * @property {number} ccSurchargePct        e.g. 3
- * @property {string} docusignTemplateId    e.g. DocuSign template UUID (Zapier passes through)
  */
 
 /** Sensible defaults. Written to KV on first read if the key doesn't exist. */
@@ -36,7 +35,6 @@ export const DEFAULT_CONFIG = Object.freeze({
   lateFeeCents: 5000,
   manualAddonCents: 3000,
   ccSurchargePct: 3,
-  docusignTemplateId: '',
 });
 
 const KV_KEY = 'current';
