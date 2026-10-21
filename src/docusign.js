@@ -166,6 +166,25 @@ async function getAccessToken(env) {
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 /**
+ * Diagnostic: verify the DocuSign JWT credentials by exchanging the token
+ * (skips the KV cache so this always tests the real credentials).
+ * No envelope is created or sent.
+ */
+export async function testConnection(env) {
+  try {
+    const token = await fetchAccessToken(env);
+    return { ok: true, hint: 'JWT grant succeeded — credentials and consent are valid.' };
+  } catch (e) {
+    const msg = String(e.message || e);
+    let hint = 'Token exchange failed.';
+    if (/consent/i.test(msg)) hint = 'The sending user has not granted consent to this integration key yet. Visit the consent URL (see docs/belt-testing-setup.md) once while logged in as the sending user.';
+    else if (/invalid_grant/i.test(msg)) hint = 'DocuSign rejected the grant — check DOCUSIGN_USER_GUID and that the RSA key matches the integration key.';
+    return { ok: false, error: msg, hint };
+  }
+}
+
+
+/**
  * Send a belt-test waiver via DocuSign, using the configured template and
  * filling every tab from the application data.
  *

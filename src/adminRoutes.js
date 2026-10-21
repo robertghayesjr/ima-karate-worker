@@ -21,6 +21,7 @@ import {
 } from './contentDocs.js';
 import { getBeltConfig, updateBeltConfig } from './beltConfig.js';
 import { buildAdminApp } from './adminApp.js';
+import { testConnection } from './docusign.js';
 import { buildNewsEventsPage } from './sitePagesWorld.js';
 import { buildClassSchedulePage } from './sitePagesStudent.js';
 
@@ -215,6 +216,11 @@ export async function handleAdminRoutes(request, env, url) {
     if (!patch || typeof patch !== 'object') return json({ error: 'Invalid JSON' }, 400);
     const updated = await updateBeltConfig(env, patch);
     return json({ ok: true, config: updated });
+  }
+  if (p === '/admin/api/belt-config/docusign-test' && request.method === 'POST') {
+    // Diagnostic only: exchanges the JWT for an access token. No envelope
+    // is created or sent. Safe to run any time.
+    return json(await testConnection(env));
   }
 
   // ── Attachments ──
