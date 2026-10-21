@@ -2,7 +2,7 @@
 //  Student Information pages. Copy follows imakarate.com.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { esc, IMG, pageShell, pageHero } from './siteTheme.js';
+import { esc, IMG, pageShell, pageHero, slider } from './siteTheme.js';
 
 const I = (name) => `${IMG}/${name}`;
 const CRUMBS_STUDENT = [
@@ -111,6 +111,33 @@ export function buildBenefitsKaratePage() {
       </div>
       <p style="margin-top:34px" class="reveal"><a href="/how-to-join" class="btn-primary">Start Training Today</a></p>
     </div>
+  </div>
+  <div class="section">
+    <div class="section-head reveal">
+      <p class="eyebrow">IMA Karate “Dojo Kun”</p>
+      <h2 class="sec">Dojo Kun</h2>
+      <p class="lead">IMA uses the traditional Shotokan “dojo kun” (karate school affirmations) in all of its classes. Our dojo kun is intended to remind students to carry the physical, mental, and spiritual benefits of karate into their everyday lives.</p>
+    </div>
+    <div class="grid-3">
+      ${[
+        ['Seek perfection of character', 'Jinkaku kansei ni tsutomuru koto'],
+        ['Be faithful', 'Makoto no michi o mamoru koto'],
+        ['Endeavor (to excel)', 'Doryoku no seishin o yashinau koto'],
+        ['Respect others', 'Reigi o omonzuru koto'],
+        ['Refrain from violent behavior', 'Keki no yū o imashimuru koto'],
+        ['Love yourself and love others', 'Onore o shiri, tasha o shiru koto'],
+      ]
+        .map(
+          ([en, jp], i) => `<div class="card spotlight reveal" data-delay="${(i % 3) * 90}">
+          <div class="card-body">
+            <span class="jp" style="display:block;margin-bottom:8px;font-size:.78rem">${jp}</span>
+            <h3 style="font-size:.98rem">${en}</h3>
+          </div>
+        </div>`,
+        )
+        .join('')}
+    </div>
+    <p class="reveal" style="margin-top:30px;color:#c9c9cd;max-width:720px">We offer you and your family one free class and welcome you to learn more about our family-oriented IMA dojo — <a href="/how-to-join" style="color:#d4a24a">see how to join</a>.</p>
   </div>`;
   return pageShell({ title: 'Benefits of Karate Training | IMA Karate', description: 'The physical, mental, and spiritual benefits of Shotokan karate training at IMA in Louisville, Colorado.', activeNav: 'student', content });
 }
@@ -150,24 +177,27 @@ export function buildHistoryPrinciplesPage() {
       <div class="grid-2 reveal">
         <ul class="arrow-list">
           <li>Never forget: Karate begins and ends with rei. Rei has the meaning of respect.</li>
-          <li>There is no “first hand” in Karate. (There is no first attack — karate is about self-defense.)</li>
+          <li>There is no “first hand” in Karate. (Meaning there is no first attack, karate is about self-defense)</li>
           <li>Karate supports righteousness.</li>
           <li>First understand yourself, then understand others.</li>
           <li>The art of mind is more important than the art of technique.</li>
           <li>The mind needs to be freed.</li>
           <li>Trouble is born of negligence.</li>
           <li>Do not think that Karate is only in the dojo.</li>
+          <li>The training of Karate requires a lifetime.</li>
+          <li>Transform everything into Karate; therein lies the exquisiteness.</li>
         </ul>
         <ul class="arrow-list">
-          <li>Karate training requires a lifetime.</li>
-          <li>Transform everything into Karate; therein lies the exquisiteness.</li>
           <li>Genuine Karate is like hot water; it cools down if you do not keep heating it.</li>
-          <li>Do not have thoughts of winning; rather, think of not losing.</li>
-          <li>Move according to your opponent.</li>
-          <li>Consider a person’s behavior in light of their character.</li>
-          <li>Apply the way of Karate to all things. Therein lies its beauty.</li>
-          <li>Karate is like boiling water; without heat, it returns to tepid water.</li>
-          <li>Do not think that you have to win; think that you do not have to lose.</li>
+          <li>Do not have an idea of winning, while the idea of losing is not necessary.</li>
+          <li>Transform yourself according to the opponent.</li>
+          <li>The outcome of the fight all depends on the maneuver.</li>
+          <li>Imagine one’s arms and legs as swords.</li>
+          <li>Once you leave the shelter of home there are a million enemies.</li>
+          <li>Postures are for the beginner, later they are natural positions.</li>
+          <li>Do the kata correctly, the real fight is a different matter.</li>
+          <li>Do not forget the dynamics of power, the elasticity of the body, and the speed of technique.</li>
+          <li>Always be good at the application of everything you have learned.</li>
         </ul>
       </div>
     </div>
@@ -387,69 +417,91 @@ export function buildRulesCompetitionPage() {
 //  LIST OF KATAS
 // ═══════════════════════════════════════════════════════════════════════════════
 export function buildKatasPage() {
+  // YouTube video IDs from the official IMA Karate channel (@imakarate)
   const groups = [
     ['Taikyoku', 'This is the most elementary kata practiced at IMA. Developed by Master Funakoshi’s son, Gigo, Taikyoku helps new students learn basic kata principles.', [
-      ['太極初段', 'Taikyoku Shodan', 'first cause'],
+      ['太極初段', 'Taikyoku Shodan', 'first cause', 'l9N7EkzVyA0'],
     ]],
-    ['Heian', 'Created relatively recently, the Heians were originally called Pinan, from the Okinawan pronunciation of the Chinese word for safety. When introduced to Japan, Master Funakoshi changed the name to Heian.', [
-      ['平安初段', 'Heian Shodan', 'peaceful mind, first level'],
-      ['平安二段', 'Heian Nidan', 'peaceful mind, second level'],
-      ['平安三段', 'Heian Sandan', 'peaceful mind, third level'],
-      ['平安四段', 'Heian Yondan', 'peaceful mind, fourth level'],
-      ['平安五段', 'Heian Godan', 'peaceful mind, fifth level'],
+    ['Heian', 'Created relatively recently, the Heians were originally called Pinan from the Okinawan pronunciation of the Chinese word for safety. When introduced to Japan, Master Funakoshi opted to use the Japanese pronunciation Heian. Considered basic kata for beginning students.', [
+      ['平安初段', 'Heian Shodan', 'peaceful mind, first level', 'GiYdnczpK-E'],
+      ['平安二段', 'Heian Nidan', 'peaceful mind, second level', '6I9ypJ_izmk'],
+      ['平安三段', 'Heian Sandan', 'peaceful mind, third level', 'Z40P4Zqwlhk'],
+      ['平安四段', 'Heian Yondan', 'peaceful mind, fourth level', 'FX-uPwodJYw'],
+      ['平安五段', 'Heian Godan', 'peaceful mind, fifth level', 'YlmbBkGPbeA'],
     ]],
-    ['Tekki', 'Originally known in Okinawa as Naihanchi, the katas were renamed by Master Funakoshi upon introduction to Japan to reflect the strength exhibited with kiba-dachi.', [
-      ['鉄騎初段', 'Tekki Shodan', 'iron horse riding, first level'],
-      ['鉄騎弐段', 'Tekki Nidan', 'iron horse riding, second level'],
-      ['鉄騎参段', 'Tekki Sandan', 'iron horse riding, third level'],
+    ['Tekki', 'Originally known in Okinawa as Naihanchi, the katas were renamed by Master Funakoshi upon its introduction to Japan to reflect the strength exhibited with kiba-dachi. Rich in fighting techniques, the Tekki family offers a plethora of close combat techniques.', [
+      ['鉄騎初段', 'Tekki Shodan', 'iron horse riding, first level', 'mn2PeIPMYuw'],
+      ['鉄騎弐段', 'Tekki Nidan', 'iron horse riding, second level', 'PbNEcqKJ-g8'],
+      ['鉄騎参段', 'Tekki Sandan', 'iron horse riding, third level', 'Va0r5nQxU3A'],
     ]],
-    ['Advanced Katas', 'The advanced katas practiced at IMA, from Bassai Dai through the Unsu. Each emphasizes different combinations of power, speed, and athletic ability.', [
-      ['', 'Bassai Dai', 'to penetrate a fortress (big) — strong techniques emphasizing hip movement'],
-      ['', 'Bassai Sho', 'to penetrate a fortress (small) — derived from Bassai Dai'],
-      ['', 'Kanku Dai', 'to look at the sky — combining elements from the Heian and Tekki series'],
-      ['', 'Kanku Sho', 'to look at the sky (small)'],
-      ['', 'Empi', 'flying swallow — rapid movements and changes of direction'],
-      ['', 'Jion', 'named after the temple Jion-ji'],
-      ['', 'Hangetsu', 'half moon — breathing and tension'],
-      ['', 'Gankaku', 'crane on a rock'],
-      ['', 'Jitte', 'ten hands'],
-      ['', 'Nijushiho', 'twenty-four steps'],
-      ['', 'Sochin', 'preserved peace'],
-      ['', 'Chinte', 'rare hands'],
-      ['', 'Meikyo', 'bright mirror'],
-      ['', 'Gojushiho Dai', 'fifty-four steps (big)'],
-      ['', 'Gojushiho Sho', 'fifty-four steps (small)'],
-      ['', 'Unsu', 'cloud hands — the most athletic of the Shotokan katas'],
-      ['', 'Wankan', 'king’s crown'],
+    ['Advanced Katas', 'The advanced katas practiced at IMA, from Bassai Dai through Unsu. Each emphasizes different combinations of power, speed, and athletic ability.', [
+      ['', 'Bassai Dai', 'The strong techniques of this kata emphasize hip movement. Some resemble a battering ram being used against fortress walls.', 'edHiunQTjBg'],
+      ['', 'Bassai Sho', 'This kata was derived from Bassai-Dai. It has a similar performance line.', null],
+      ['', 'Kanku Dai', 'Most of the elements of the Heian Kata were derived from this kata. The first movement in this kata views the sky, which symbolizes the universe and shows your opponent that you are unarmed. It was Master Funakoshi’s preferred kata.', 'PH4k9n0rYas'],
+      ['', 'Kanku Sho', 'Kanku Sho was created from Kanku Dai. The movements and performance line are similar.', null],
+      ['', 'Hangetsu', 'This kata received its name from its principal stance, hangetsu dachi (half moon stance).', null],
+      ['', 'Goju Shi Ho Dai', 'This kata is one of the most advanced kata of Shotokan. Master Funakoshi called it hotaku (knocking of a woodpecker) because some of the techniques resemble a woodpecker tapping its beak against a tree.', null],
+      ['', 'Goju Shi Ho Sho', 'This is a smaller version of Goju Shi Ho Dai. It is also one of the most advanced kata of Shotokan.', null],
+      ['', 'Enpi', 'The quick up and down movements of this kata are reminiscent of a flying swallow. Enpi is one of the oldest kata in Shotokan. Its former name was Wanshu.', 'X8LKb6PhjNU'],
+      ['', 'Jion', 'Jion is a term in Buddhism. It is also the name of a temple in China. It uses basic stances and techniques. It is one of the most traditional kata in Shotokan.', 'mJlOf_c8wYc'],
+      ['', 'Jiin', 'Jiin is another term in Buddhism. It has similar techniques and performance line as Jion.', null],
+      ['', 'Jitte', 'The goal of this kata is to teach a student to fight against ten opponents. This is a strong kata, similar to Jion and Jiin.', null],
+      ['', 'Meikyo', 'The first movements of this kata suggest the smoothing of water to make it as calm and even as a mirror. The triangle jump at the end of this kata is said to have a secret meaning portending to a miracle.', null],
+      ['', 'Niju Shi Ho', 'The movements in this kata resemble waves breaking on a cliff. The former name of this kata was ni sei shi.', null],
+      ['', 'Wankan', 'Wankan is the shortest kata in Shotokan.', null],
+      ['', 'Gankaku', 'The main stance in this kata (tsuruashi dachi) resembles a crane ready to strike at its prey. The movements are supposed to simulate a fight in the narrow alleyways of Okinawa. The former name of this kata was Chinto.', null],
+      ['', 'Sochin', 'The name of this kata comes from its stance (sochin dachi), a strong, rooted stance. The purpose of this kata is to teach defense against a stick. Its former name was Hakko.', null],
+      ['', 'Chinte', 'Chinte has a lot of circular and roundhouse techniques. These are rare and are not typical of the shortest distance between two points concept of Shotokan.', null],
+      ['', 'Unsu', 'Unsu has several techniques that symbolize parting the clouds with open hands. It is also one of the most advanced kata of Shotokan.', null],
     ]],
   ];
+  // gallery slider — kata demonstrations from the official IMA YouTube channel
+  const gallery = slider({
+    slides: [
+      { img: 'yt-bassai-dai.jpg', alt: 'Bassai Dai kata demonstration', title: 'Bassai Dai', text: 'To penetrate a fortress — strong techniques emphasizing hip movement.', href: 'https://www.youtube.com/watch?v=edHiunQTjBg' },
+      { img: 'yt-kanku-dai.jpg', alt: 'Kanku Dai kata demonstration', title: 'Kanku Dai', text: 'To view the sky — Master Funakoshi’s preferred kata.', href: 'https://www.youtube.com/watch?v=PH4k9n0rYas' },
+      { img: 'yt-heian-shodan.jpg', alt: 'Heian Shodan kata demonstration', title: 'Heian Shodan', text: 'Peaceful mind, first level — basic kata for beginning students.', href: 'https://www.youtube.com/watch?v=GiYdnczpK-E' },
+      { img: 'yt-enpi.jpg', alt: 'Enpi kata demonstration', title: 'Enpi', text: 'Flying swallow — one of the oldest kata in Shotokan.', href: 'https://www.youtube.com/watch?v=X8LKb6PhjNU' },
+      { img: 'yt-jion.jpg', alt: 'Jion kata demonstration', title: 'Jion', text: 'One of the most traditional kata in Shotokan.', href: 'https://www.youtube.com/watch?v=mJlOf_c8wYc' },
+    ],
+  });
   const content = `
   ${pageHero({
     eyebrow: 'Student Information',
     title: 'List of Katas',
-    lead: 'The katas of Shotokan karate, from Taikyoku to Unsu.',
+    lead: 'The katas of Shotokan karate, from Taikyoku to Unsu — with video demonstrations on YouTube.',
     crumbs: [...CRUMBS_STUDENT, { label: 'List of Katas' }],
   })}
-  <div class="section" style="max-width:900px">
-    <div class="img-frame natural reveal" style="max-width:240px;margin:0 auto 44px;background:#0d0d0f;padding:10px">
+  <div class="section" style="max-width:980px">
+    <div class="section-head reveal">
+      <p class="eyebrow">From the IMA YouTube Channel</p>
+      <h2 class="sec">Kata Demonstrations</h2>
+      <p class="lead">Filmed at the IMA Honbu Dojo — browse the full library on <a href="https://www.youtube.com/@imakarate" target="_blank" rel="noopener" style="color:#d4a24a">YouTube</a>.</p>
+    </div>
+    ${gallery}
+    <div style="max-width:240px;margin:56px auto 0" class="img-frame natural reveal">
       <img src="${I('kubodo-kata.jpg')}" alt="Kobudo kata demonstration" loading="lazy" />
     </div>
-    ${groups
-      .map(
-        ([name, intro, katas], i) => `
+  </div>
+  <div class="section alt">
+    <div class="inner" style="max-width:980px">
+      ${groups
+        .map(
+          ([name, intro, katas], i) => `
     <details class="acc reveal" ${i === 0 ? 'open' : ''}>
       <summary>${name} <span class="nav-arrow">▾</span></summary>
       <div class="acc-body">
         <p>${intro}</p>
         <ul class="dict-list">
-          ${katas.map(([jp, romaji, meaning]) => `<li>${jp ? `<span class="jp">${jp}</span>` : ''}<b>${romaji}</b> — ${meaning}</li>`).join('')}
+          ${katas.map(([jp, romaji, meaning, yt]) => `<li>${jp ? `<span class="jp">${jp}</span>` : ''}<b>${romaji}</b> — ${meaning}${yt ? ` · <a href="https://www.youtube.com/watch?v=${yt}" target="_blank" rel="noopener" style="color:#d4a24a">View on YouTube ↗</a>` : ''}</li>`).join('')}
         </ul>
       </div>
     </details>`,
-      )
-      .join('')}
+        )
+        .join('')}
+    </div>
   </div>`;
-  return pageShell({ title: 'List of Katas | IMA Karate', description: 'The complete list of Shotokan karate katas practiced at IMA: Taikyoku, Heian, Tekki, and the advanced katas.', activeNav: 'student', content });
+  return pageShell({ title: 'List of Katas | IMA Karate', description: 'The complete list of Shotokan karate katas practiced at IMA: Taikyoku, Heian, Tekki, and the advanced katas — with video demonstrations on YouTube.', activeNav: 'student', content });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -471,7 +523,7 @@ export function buildDictionaryPage() {
       ['Morote-uke', '(moe-row-the oo-kay)', 'Augmented block'],
       ['Nagashi-uke', '(nah-gah-she oo-kay)', 'Sweeping block'],
       ['Sashite-uke', '(sah-she-tay oo-kay)', 'Rising hand block'],
-      ['Teisho-uke', '(tay-sho oo-kay)', 'Palm-heel block'],
+      ['Teishi-uke', '(tay-sho oo-kay)', 'Palm-heel block'],
     ]],
     ['Punch (Zuki — pronounced “zoo-key”)', [
       ['Age-zuki', '(ah-geh zoo-key)', 'Rising punch'],
@@ -492,63 +544,103 @@ export function buildDictionaryPage() {
       ['Keage', '(key-ah-geh)', 'Snap kick'],
       ['Kekomi', '(kay-koh-me)', 'Thrust kick'],
       ['Mae-geri', '(mah-eh geh-rhee)', 'Front kick'],
-      ['Mawashi-geri', '(mah-wah-she geh-rhee)', 'Roundhouse kick'],
-      ['Mikazuki-geri', '(me-kah-zoo-key geh-rhee)', 'Crescent kick'],
+      ['Mae-geri-kaege', '(mah-eh geh-rhee kay-ah-geh)', 'Front snap kick'],
+      ['Mae-geri-kakomi', '(mah-eh geh-rhee kay-koh-me)', 'Front thrust kick'],
+      ['Mae-tobi-geri', '(mah-eh toe-be geh-rhee)', 'Jumping front kick'],
+      ['Mawashi-geri', '(mah-wah-she geh-rhee)', 'Round kick'],
       ['Ushiro-geri', '(oo-she-row geh-rhee)', 'Back kick'],
-      ['Yoko-geri-keage', '(yoh-koh geh-rhee key-ah-geh)', 'Side snap kick'],
+      ['Yoko-geri-kaegi', '(yoh-koh geh-rhee key-ah-geh)', 'Side snap kick'],
       ['Yoko-geri-kekomi', '(yoh-koh geh-rhee kay-koh-me)', 'Side thrust kick'],
-      ['Hiza-geri', '(he-zah geh-rhee)', 'Knee kick'],
-      ['Kansetsu-geri', '(kahn-seh-tsu geh-rhee)', 'Joint kick'],
     ]],
     ['Strike (Uchi — pronounced “oo-chee”)', [
-      ['Empi-uchi', '(em-pee oo-chee)', 'Elbow strike'],
-      ['Shuto-uchi', '(shoe-toe oo-chee)', 'Knife-hand strike'],
-      ['Tettsui-uchi', '(tet-sue-ee oo-chee)', 'Hammer-fist strike'],
-      ['Uraken-uchi', '(oo-rah-ken oo-chee)', 'Back-fist strike'],
+      ['Empi-uchi', '(en-pee oo-chee)', 'Elbow strike'],
+      ['Haishu-uchi', '(hi-shoo oo-chee)', 'Back hand strike'],
       ['Haito-uchi', '(hi-toe oo-chee)', 'Ridge-hand strike'],
-      ['Nukite', '(noo-key-teh)', 'Spear-hand strike'],
+      ['Ippon-ken', '(eep-pone ken)', 'One-knuckle fist'],
+      ['Nukite', '(noo-key-teh)', 'Spear hand'],
+      ['Kentsui-uchi', '(ken-tsue-ee oo-chee)', 'Hammer fist strike'],
+      ['Shuto-uchi', '(shoe-toe oo-chee)', 'Knife hand strike'],
+      ['Teisho-uchi', '(tay-sho oo-chee)', 'Palm hand strike'],
+      ['Uraken-uchi', '(oo-rah-ken oo-chee)', 'Back fist strike'],
     ]],
     ['Stance (Dachi — pronounced “dah-chee”)', [
-      ['Zenkutsu-dachi', '(zen-koo-tsu dah-chee)', 'Front stance'],
-      ['Kokutsu-dachi', '(ko-koo-tsu dah-chee)', 'Back stance'],
-      ['Kiba-dachi', '(key-bah dah-chee)', 'Horse-riding stance'],
-      ['Fudo-dachi', '(foo-doh dah-chee)', 'Immovable stance'],
-      ['Neko-ashi-dachi', '(neh-koh ah-she dah-chee)', 'Cat stance'],
-      ['Heisoku-dachi', '(hey-so-koo dah-chee)', 'Informal attention stance'],
-      ['Musubi-dachi', '(moo-soo-bee dah-chee)', 'Formal attention stance'],
-      ['Han-zenkutsu-dachi', '(han zen-koo-tsu dah-chee)', 'Half front stance'],
-      ['Sanchin-dachi', '(sahn-chin dah-chee)', 'Hourglass stance'],
-      ['Teiji-dachi', '(tay-jee dah-chee)', 'T-stance'],
+      ['Fudo-dachi', '(foo-dough dah-chee)', 'Rooted stance'],
+      ['Hachiji-dachi', '(hah-chee-gee dah-chee)', 'Open leg stance'],
+      ['Hangetsu-dachi', '(hahn-geh-tsue dah-chee)', 'Half-moon stance'],
+      ['Heiko-dachi', '(hay-koh dah-chee)', 'Parallel stance'],
+      ['Kamae', '(kah-may)', 'Sparring posture'],
+      ['Kiba-dachi', '(key-bah dah-chee)', 'Side stance (horse stance)'],
+      ['Kokutsu-dachi', '(koe-koo-tsu dah-chee)', 'Back stance'],
+      ['Kosa-dachi', '(koe-sah dah-chee)', 'Crossed legged stance'],
+      ['Neko-ashi-dachi', '(neh-koh ah-she-dah-chee)', 'Cat stance'],
+      ['Sanchin-dachi', '(sahn-chin dah-chee)', 'Hour-glass stance'],
+      ['Shizentai', '(she-zen dah-chee)', 'Natural position'],
+      ['Sochin-dachi', '(so-chin dah-chee)', 'Diagonal straddle-leg stance'],
+      ['Teiji-dachi', '(tay-jee dah-chee)', 'T stance'],
+      ['Zenkutsu-dachi', '(zen-koo-tsue dah-chee)', 'Front stance'],
+    ]],
+    ['Numbers', [
+      ['Ichi', '(ih-chee)', 'One'],
+      ['Ni', '(nee)', 'Two'],
+      ['San', '(sahn)', 'Three'],
+      ['Shi', '(she)', 'Four'],
+      ['Go', '(goh)', 'Five'],
+      ['Roku', '(roo-koo)', 'Six'],
+      ['Shichi', '(shih-chee)', 'Seven'],
+      ['Hachi', '(hah-chee)', 'Eight'],
+      ['Ku', '(koo)', 'Nine'],
+      ['Ju', '(joo)', 'Ten'],
     ]],
     ['General Terms', [
-      ['Dojo', '(doh-joh)', 'Training hall'],
-      ['Sensei', '(sen-say)', 'Teacher / instructor'],
-      ['Hanshi', '(hahn-she)', 'Master instructor'],
-      ['Shihan', '(she-hahn)', 'Master / expert instructor'],
-      ['Senpai', '(sen-pie)', 'Senior student'],
-      ['Kohai', '(koh-high)', 'Junior student'],
-      ['Gi (Karate-gi)', '(gee)', 'Uniform'],
-      ['Obi', '(oh-bee)', 'Belt'],
+      ['Budo', '(boo-doh)', 'Martial way'],
+      ['Bunkai', '(bun-kye)', 'Applications'],
+      ['Chudan', '(chew-dahn)', 'Chest area'],
+      ['Dan', '(dahn)', 'Black belt rank'],
+      ['Do', '(doh)', 'Way / path'],
+      ['Dojo', '(doh-joh)', 'Training area'],
+      ['Domo Arigato Gozai-mashita', '(doh-moh ah-ree-gah-toh go-zye-mah-she-tah)', 'Thank you very much (past)'],
+      ['Gasshuku', '(gah-shoo-koo)', 'Summer camp'],
+      ['Gedan', '(geh-dahn)', 'Lower body area'],
+      ['Gi (Karate-gi)', '(ghee)', 'Uniform'],
+      ['Gohan-kumite', '(goh-hon koo-mih-tay)', 'Five step sparring'],
+      ['Hai', '(hi)', 'Yes'],
+      ['Hajime', '(hah-zhim-ay)', 'Begin'],
+      ['Hidari', '(he-dah-rhee)', 'Left'],
+      ['Hombu-Dojo', '(hohm-boo doh-joh)', 'Dojo headquarters'],
+      ['Ippon kumite', '(eep-pohn koo-me-teh)', 'One step sparring'],
+      ['Jiyu ippon', '(jye-oo ih-pon)', 'Free one step sparring'],
+      ['Jiyu-kumite', '(gee-you koo-me-teh)', 'Free sparring'],
+      ['Jodan', '(joh-dahn)', 'Face area'],
+      ['Kamae', '(kah-mah-eh)', 'Sparring posture'],
+      ['Karate', '(kah-rah-teh)', 'Empty hand'],
+      ['KarateKa', '(kah-rah-teh-kah)', 'Karate student'],
       ['Kata', '(kah-tah)', 'Form'],
-      ['Kumite', '(koo-mee-teh)', 'Sparring'],
-      ['Kihon', '(key-hone)', 'Basics / fundamentals'],
-      ['Rei', '(ray)', 'Bow / respect'],
+      ['Ki', '(key)', 'Mind, spirit, energy'],
+      ['Kiai', '(kee-eye)', 'Focusing shout'],
+      ['Kihon', '(key-hohn)', 'Basic technique'],
+      ['Kihon kumite', '(key-hohn koo-me-teh)', 'Basic sparring'],
+      ['Kime', '(key-may)', 'Focus of power'],
+      ['Kumite', '(koo-me-teh)', 'Sparring'],
+      ['Kyu', '(kyoo)', 'White / brown belt rank'],
+      ['Mae', '(mah-eh)', 'Front'],
+      ['Makiwara', '(mah-key-wha-rah)', 'Punching board'],
+      ['Mawate-te', '(mah-wah-tay)', 'Turn around'],
+      ['Migi', '(me-ghee)', 'Right'],
+      ['Ohayo Gozaimasu', '(oh-ha-yoh go-zye-mah-soo)', 'Good morning'],
+      ['Onegai-shimasu', '(oh-nih-guy-she-mah-soo)', 'Please teach me'],
+      ['Osu', '(oh-soo)', 'Greeting'],
+      ['Oyasumi nasai', '(oh-yah-soo-me nah-sigh)', 'Good night'],
+      ['Rei', '(rey)', 'Bow'],
+      ['Sanbon kumite', '(sahn-bohn koo-me-teh)', 'Three step sparring'],
+      ['Seiza', '(say-zah)', 'Sitting position'],
+      ['Sempai', '(sehm-pye)', 'Senior student'],
+      ['Sensei', '(sehn-seh-ee)', 'Instructor'],
+      ['Shizen-tai', '(she-zen tah-ee)', 'Natural position'],
+      ['Tai sabaki', '(tye sah-bah-key)', 'Body movement'],
+      ['Waza', '(wah-zah)', 'Technique'],
+      ['Yame', '(yah-may)', 'Stop'],
       ['Yoi', '(yoy)', 'Ready'],
-      ['Yame', '(yah-meh)', 'Stop'],
-      ['Hajime', '(hah-jee-meh)', 'Begin'],
-      ['Mawatte', '(mah-waht-teh)', 'Turn'],
-      ['Mokuso', '(moh-koo-so)', 'Meditation'],
-      ['Kime', '(key-meh)', 'Focus'],
-      ['Kiai', '(kee-eye)', 'Spirit shout'],
-      ['Oss / Osu', '(oss)', 'Acknowledgment / sign of respect'],
-      ['Karate-do', '(kah-rah-teh doh)', 'The way of the empty hand'],
-      ['Hajime', '(hah-jee-meh)', 'Begin'],
-      ['Seiza', '(say-zah)', 'Formal sitting position'],
-      ['Shotokan', '(show-toh-kahn)', 'Style of karate founded by Gichin Funakoshi'],
-      ['Kyu', '(queue)', 'Color belt grade'],
-      ['Dan', '(dahn)', 'Black belt degree'],
-      ['Honbu', '(hone-boo)', 'Headquarters'],
-      ['Gasshuku', '(gah-shoo-koo)', 'Training camp'],
+      ['Zanshin', '(zahn-shin)', 'Following through technique'],
     ]],
   ];
   const content = `

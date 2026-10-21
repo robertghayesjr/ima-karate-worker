@@ -26,6 +26,17 @@ function isDemoMode(env) {
   return env.DEMO_MODE === '1' || env.DEMO_MODE === 'true';
 }
 
+/**
+ * Guard for any write against a Memberstack member. In demo mode we must never
+ * mutate a real member — only synthetic mem_demo_* records are writable.
+ * In production (demo off), all members are writable.
+ */
+function canWriteMember(env, memberId) {
+  if (!memberId) return false;
+  if (isDemoMode(env)) return memberId.startsWith('mem_demo_');
+  return true;
+}
+
 function json(obj, status = 200, extra = {}) {
   return new Response(JSON.stringify(obj), {
     status,
@@ -204,16 +215,48 @@ async function apiCheckout(request, env) {
 
   const planId = env[tier.planEnv];
   const planUnset = !planId || planId.startsWith('pln_replace_');
-  const demo = isDemoMode(env) || planUnset;
+  const demo = isDemoMode(env);
+
+  // HARDENING: when demo mode is OFF, a missing plan ID must NOT silently
+  // fall back to the mock checkout — that would let production payments
+  // bypass Stripe. Fail loudly instead.
+  if (!demo && planUnset) {
+    console.error(`Belt-testing checkout: plan ID missing for tier ${tier.id} (env ${tier.planEnv})`);
+    return json({
+      error: 'Payment plan for this belt tier is not configured yet. Please contact the dojo at (303) 665-0339 to complete your registration.',
+      code: 'plan_not_configured',
+    }, 503);
+  }
 
   // Persist application to KV so the /post-payment step can retrieve it.
-  const stashKey = `application:${memberId}`;
+  // HARDENING: monetary fields are recomputed server-side from the tier table
+  // and the KV config — client-supplied amounts are never trusted.
   const cfg = await getBeltConfig(env);
+  const serverIsLate = isLateNow(cfg);
+  const serverAmounts = {
+    baseCents: tier.priceCents,
+    manualCents: application.wantsManual && tier.id !== 'brown' ? cfg.manualAddonCents : 0,
+    lateCents: serverIsLate ? cfg.lateFeeCents : 0,
+  };
+  serverAmounts.totalCents = computeTotalCents(tier.id, {
+    wantsManual: application.wantsManual,
+    isLate: serverIsLate,
+    payByCreditCard: application.payByCreditCard,
+  }, cfg);
+
+  // One-time checkout token — /post-payment must present this to mark the
+  // member paid, so an arbitrary GET can't flip paid flags.
+  const checkoutToken = crypto.randomUUID();
+
+  const stashKey = `application:${memberId}`;
   const stash = {
     ...application,
     memberId,
     tierId: tier.id,
     tierLabel: tier.label,
+    ...serverAmounts,
+    isLate: serverIsLate,
+    checkoutToken,
     testingTime: testingTimeFor(tier.testingBlock),
     testDate: cfg.testDate,
     testDateDisplay: cfg.testDateDisplay,
@@ -222,8 +265,8 @@ async function apiCheckout(request, env) {
   await env.IMA_KARATE.put(stashKey, JSON.stringify(stash), { expirationTtl: 60 * 60 * 24 * 7 });
 
   // Also stamp the member with what they applied for so support can see it.
-  // Skip if this is a synthetic demo memberId (no real Memberstack record).
-  if (!memberId.startsWith('mem_demo_')) {
+  // Guarded: demo mode never writes to real Memberstack members.
+  if (canWriteMember(env, memberId)) {
     try {
       await recordBeltTestProgress(env, memberId, {
         tier: tier.id,
@@ -239,6 +282,7 @@ async function apiCheckout(request, env) {
   if (demo) {
     const mockUrl = new URL('/belt-testing/mock-stripe', request.url);
     mockUrl.searchParams.set('memberId', memberId);
+    mockUrl.searchParams.set('token', checkoutToken);
     return json({ checkoutUrl: mockUrl.toString(), demo: true });
   }
 
@@ -248,6 +292,7 @@ async function apiCheckout(request, env) {
   const successUrl = new URL('/belt-testing/post-payment', request.url);
   successUrl.searchParams.set('memberId', memberId);
   successUrl.searchParams.set('planId', planId);
+  successUrl.searchParams.set('token', checkoutToken);
   const cancelUrl = new URL('/belt-testing', request.url);
   cancelUrl.searchParams.set('cancel', '1');
 
@@ -271,43 +316,62 @@ async function apiCheckout(request, env) {
 async function handlePostPayment(request, env, url) {
   const memberId = url.searchParams.get('memberId');
   if (!memberId) return new Response('Missing memberId', { status: 400 });
+  const token = url.searchParams.get('token') || '';
 
   const cfg = await getBeltConfig(env);
   const stashRaw = await env.IMA_KARATE.get(`application:${memberId}`);
   const stash = stashRaw ? JSON.parse(stashRaw) : null;
 
-  const demo = isDemoMode(env) || url.searchParams.get('demo') === '1' || memberId.startsWith('mem_demo_');
+  const demo = isDemoMode(env) || memberId.startsWith('mem_demo_');
 
-  // Mark as paid (belt-test-paid = true) — skipped for synthetic demo members.
-  if (!memberId.startsWith('mem_demo_')) {
+  // HARDENING: only mark the member paid when the one-time checkout token
+  // from our own checkout URL is presented — an arbitrary GET (or a stale
+  // bookmark) can no longer flip the paid flag.
+  const tokenOk = stash?.checkoutToken && token && stash.checkoutToken === token;
+  const markPaid = tokenOk && canWriteMember(env, memberId);
+  if (markPaid) {
     try {
       await recordBeltTestProgress(env, memberId, { paid: true, testDate: cfg.testDate });
     } catch (e) {
       console.warn('mark paid failed:', e.message);
     }
+  } else if (stash && !tokenOk) {
+    console.warn(`post-payment: paid flag NOT set for ${memberId} — checkout token missing/mismatched`);
   }
 
   // Send DocuSign envelope directly (JWT auth from Worker) — replaces the
   // former Zapier hop. On failure we still show the interstitial so the user
   // isn't stranded; they'll just get a manual email from us.
+  // HARDENING: idempotent — a page refresh does not send a second envelope.
   // Demo mode skips DocuSign entirely and shows a mock-signing CTA instead.
   let docusignError = null;
   if (stash && !demo) {
-    const member = await getMember(env, memberId).catch(() => null);
-    const payload = buildDocusignPayload(stash, member, cfg);
-    try {
-      const result = await sendBeltTestEnvelope(env, payload);
-      // Stash envelope ID against member so /webhook/signed can correlate.
+    const sentKey = `docusign-sent:${memberId}`;
+    const alreadySent = await env.IMA_KARATE.get(sentKey);
+    if (alreadySent) {
+      console.log(`post-payment: envelope already sent for ${memberId}, skipping resend`);
+    } else {
+      const member = await getMember(env, memberId).catch(() => null);
+      const payload = buildDocusignPayload(stash, member, cfg);
       try {
-        await env.IMA_KARATE.put(
-          `envelope:${result.envelopeId}`,
-          JSON.stringify({ memberId, ...payload.metadata }),
-          { expirationTtl: 60 * 60 * 24 * 30 },
-        );
-      } catch (e) { console.warn('envelope stash failed:', e.message); }
-    } catch (e) {
-      console.error('DocuSign send failed:', e.message);
-      docusignError = e.message;
+        const result = await sendBeltTestEnvelope(env, payload);
+        // Stash envelope ID against member so /webhook/signed can correlate,
+        // and record that this member's envelope was already sent.
+        try {
+          await env.IMA_KARATE.put(
+            `envelope:${result.envelopeId}`,
+            JSON.stringify({ memberId, ...payload.metadata }),
+            { expirationTtl: 60 * 60 * 24 * 30 },
+          );
+          await env.IMA_KARATE.put(sentKey, JSON.stringify({
+            envelopeId: result.envelopeId,
+            sentAt: new Date().toISOString(),
+          }), { expirationTtl: 60 * 60 * 24 * 7 });
+        } catch (e) { console.warn('envelope stash failed:', e.message); }
+      } catch (e) {
+        console.error('DocuSign send failed:', e.message);
+        docusignError = e.message;
+      }
     }
   }
 
@@ -427,6 +491,8 @@ function escStr(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&a
 async function apiWebhookPaid(request, env) {
   const body = await request.json().catch(() => null);
   if (!body?.memberId) return json({ error: 'memberId required' }, 400);
+  // Guarded: demo mode never writes to real Memberstack members.
+  if (!canWriteMember(env, body.memberId)) return json({ ok: true, skipped: 'demo-mode real member' });
   await recordBeltTestProgress(env, body.memberId, { paid: true });
   return json({ ok: true });
 }
@@ -437,6 +503,8 @@ async function apiWebhookPaid(request, env) {
 async function apiWebhookSigned(request, env) {
   const body = await request.json().catch(() => null);
   if (!body?.memberId) return json({ error: 'memberId required' }, 400);
+  // Guarded: demo mode never writes to real Memberstack members.
+  if (!canWriteMember(env, body.memberId)) return json({ ok: true, skipped: 'demo-mode real member' });
   await recordBeltTestProgress(env, body.memberId, {
     signed: true,
     envelopeId: body.envelopeId,
@@ -473,9 +541,12 @@ async function apiDocusignConnect(request, env) {
   }
 
   if (memberId && /completed|signed/i.test(status)) {
-    await recordBeltTestProgress(env, memberId, { signed: true, envelopeId }).catch((e) =>
-      console.warn('mark signed failed:', e.message),
-    );
+    // Guarded: demo mode never writes to real Memberstack members.
+    if (canWriteMember(env, memberId)) {
+      await recordBeltTestProgress(env, memberId, { signed: true, envelopeId }).catch((e) =>
+        console.warn('mark signed failed:', e.message),
+      );
+    }
   }
   return json({ ok: true, memberId, envelopeId, status });
 }
@@ -489,7 +560,7 @@ async function handleMockStripe(request, env, url) {
   const cfg = await getBeltConfig(env);
   const stashRaw = await env.IMA_KARATE.get(`application:${memberId}`);
   const stash = stashRaw ? JSON.parse(stashRaw) : null;
-  return html(buildMockStripePage(stash, memberId, cfg));
+  return html(buildMockStripePage(stash, memberId, cfg, url.searchParams.get('token')));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -510,7 +581,8 @@ async function apiMockDocusignComplete(request, env) {
   const body = await request.json().catch(() => null);
   const memberId = body?.memberId;
   if (!memberId) return json({ error: 'memberId required' }, 400);
-  if (!memberId.startsWith('mem_demo_')) {
+  // Guarded: demo mode never writes to real Memberstack members.
+  if (canWriteMember(env, memberId)) {
     try {
       await recordBeltTestProgress(env, memberId, { signed: true });
     } catch (e) {

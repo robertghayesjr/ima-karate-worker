@@ -3,7 +3,7 @@
 //  Copy follows the live imakarate.com content.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { esc, IMG, pageShell, pageHero } from './siteTheme.js';
+import { esc, IMG, pageShell, pageHero, slider } from './siteTheme.js';
 
 const I = (name) => `${IMG}/${name}`;
 
@@ -94,6 +94,25 @@ export function buildHomePage() {
         </a>
       </div>
     </div>
+  </div>
+
+  <!-- INSIDE THE DOJO SLIDER -->
+  <div class="section">
+    <div class="section-head reveal">
+      <p class="eyebrow">Inside the Dojo</p>
+      <h2 class="sec">Training at the Honbu Dojo</h2>
+      <p class="lead">Kata demonstrations and class footage from our official <a href="https://www.youtube.com/@imakarate" target="_blank" rel="noopener" style="color:#d4a24a">YouTube channel</a>.</p>
+    </div>
+    ${slider({
+      slides: [
+        { img: 'yt-heian-shodan.jpg', alt: 'Heian Shodan kata demonstration at the IMA dojo', title: 'Heian Shodan', text: 'Peaceful mind, first level — basic kata for beginning students.', href: 'https://www.youtube.com/watch?v=GiYdnczpK-E' },
+        { img: 'yt-bassai-dai.jpg', alt: 'Bassai Dai kata demonstration at the IMA dojo', title: 'Bassai Dai', text: 'Strong techniques emphasizing hip movement, like a battering ram against fortress walls.', href: 'https://www.youtube.com/watch?v=edHiunQTjBg' },
+        { img: 'yt-kanku-dai.jpg', alt: 'Kanku Dai kata demonstration at the IMA dojo', title: 'Kanku Dai', text: 'To view the sky — Master Funakoshi’s preferred kata.', href: 'https://www.youtube.com/watch?v=PH4k9n0rYas' },
+        { img: 'yt-enpi.jpg', alt: 'Enpi kata demonstration at the IMA dojo', title: 'Enpi', text: 'Flying swallow — one of the oldest kata in Shotokan.', href: 'https://www.youtube.com/watch?v=X8LKb6PhjNU' },
+        { img: 'yt-jion.jpg', alt: 'Jion kata demonstration at the IMA dojo', title: 'Jion', text: 'One of the most traditional kata in Shotokan.', href: 'https://www.youtube.com/watch?v=mJlOf_c8wYc' },
+        { img: 'dojo-kids-class.jpg', alt: 'Kids karate class training at the IMA dojo', title: 'Youth Classes', text: 'Traditional Shotokan techniques with proper dojo etiquette.', href: '/programs#youth' },
+      ],
+    })}
   </div>
 
   <!-- NEWS -->

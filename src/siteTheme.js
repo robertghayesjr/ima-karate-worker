@@ -345,6 +345,40 @@ details.acc .acc-body p{color:#b8b8bd;margin:0 0 10px;font-size:.92rem}
 .footer-bottom{border-top:1px solid #17171a;padding:20px 5vw;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;max-width:1200px;margin:0 auto;font-size:.78rem;color:#6f6f74}
 .footer-bottom a{color:#9a9a9f;text-decoration:none}
 
+/* ── Slider / carousel ────────────────────────────────── */
+.slider{position:relative;border-radius:10px;overflow:hidden;border:1px solid #26262b;box-shadow:0 24px 60px rgba(0,0,0,.5);background:#0d0d0f}
+.slider-track{display:flex;transition:transform .6s cubic-bezier(.2,.7,.3,1)}
+.slide{position:relative;flex:0 0 100%;overflow:hidden}
+.slide img{width:100%;height:100%;object-fit:cover}
+.slide-cap{position:absolute;left:0;right:0;bottom:0;padding:64px 26px 20px;background:linear-gradient(180deg,transparent,rgba(5,5,6,.93) 68%);pointer-events:none}
+.slide-cap b{display:block;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:clamp(.95rem,2vw,1.15rem);color:#fff}
+.slide-cap span{color:#c9c9cd;font-size:.86rem;display:block;margin-top:2px}
+.slide-cap a{color:#e4b666;text-decoration:none;border-bottom:1px solid rgba(212,162,74,.4)}
+.slide-cap a:hover{color:#fff}
+.slider-btn{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(10,10,11,.55);backdrop-filter:blur(8px);color:#f4f4f5;font-size:1.25rem;cursor:pointer;transition:background .2s,border-color .2s;display:grid;place-items:center}
+.slider-btn:hover{background:#c8102e;border-color:#c8102e}
+.slider-btn.prev{left:16px}
+.slider-btn.next{right:16px}
+.slider-dots{position:absolute;bottom:16px;right:20px;z-index:3;display:flex;gap:7px}
+.slider-dots button{width:26px;height:5px;border:0;border-radius:3px;background:rgba(255,255,255,.25);cursor:pointer;transition:background .25s,transform .25s;padding:0}
+.slider-dots button:hover{background:rgba(255,255,255,.5)}
+.slider-dots button[aria-current="true"]{background:linear-gradient(90deg,#c8102e,#d4a24a);transform:scaleY(1.35)}
+@media(prefers-reduced-motion:reduce){.slider-track{transition:none}}
+
+/* ── Spotlight / glow follow on cards ────────────────── */
+.card,.person{position:relative}
+.card::before,.person::before{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .3s;background:radial-gradient(220px circle at var(--mx,50%) var(--my,50%),rgba(200,16,46,.12),transparent 65%)}
+.card:hover::before,.person:hover::before{opacity:1}
+
+/* ── Marquee ──────────────────────────────────────────── */
+.marquee{overflow:hidden;position:relative;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.marquee-track{display:flex;gap:44px;width:max-content;animation:marq 30s linear infinite}
+.marquee:hover .marquee-track{animation-play-state:paused}
+.marquee span{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.14em;font-size:.82rem;color:#8f8f93;white-space:nowrap}
+.marquee span b{color:#d4a24a}
+@keyframes marq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media(prefers-reduced-motion:reduce){.marquee-track{animation:none}}
+
 /* ── Reveal animations ────────────────────────────────── */
 .reveal{opacity:0;transform:translateY(30px);filter:blur(10px);transition:opacity .8s cubic-bezier(.2,.7,.3,1),transform .8s cubic-bezier(.2,.7,.3,1),filter .8s cubic-bezier(.2,.7,.3,1)}
 .reveal.in{opacity:1;transform:none;filter:blur(0)}
@@ -466,6 +500,63 @@ const SITE_JS = `
         g.style.display = vis ? '' : 'none';
       });
       if (empty) empty.style.display = shown ? 'none' : 'block';
+    });
+  }
+
+  // ── sliders (accessible carousel) ─────────────────────
+  document.querySelectorAll('.slider').forEach(function(slider){
+    var track = slider.querySelector('.slider-track');
+    if (!track) return;
+    var slides = Array.prototype.slice.call(track.children);
+    var dots = Array.prototype.slice.call(slider.querySelectorAll('.slider-dots button'));
+    var prev = slider.querySelector('.slider-btn.prev');
+    var next = slider.querySelector('.slider-btn.next');
+    var i = 0, n = slides.length, timer = null;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var auto = slider.hasAttribute('data-autoplay') && !reduce && n > 1;
+    function go(idx){
+      i = ((idx % n) + n) % n;
+      track.style.transform = 'translateX(' + (-i * 100) + '%)';
+      slides.forEach(function(s, k){ s.setAttribute('aria-hidden', k === i ? 'false' : 'true'); });
+      dots.forEach(function(d, dk){ d.setAttribute('aria-current', dk === i ? 'true' : 'false'); });
+    }
+    function play(){ if (auto && !timer) timer = setInterval(function(){ go(i + 1); }, 5500); }
+    function pause(){ if (timer) { clearInterval(timer); timer = null; } }
+    if (prev) prev.addEventListener('click', function(){ go(i - 1); restart(); });
+    if (next) next.addEventListener('click', function(){ go(i + 1); restart(); });
+    dots.forEach(function(d){ d.addEventListener('click', function(){ go(parseInt(d.getAttribute('data-idx'), 10)); restart(); }); });
+    function restart(){ pause(); play(); }
+    // keyboard: left/right when slider focused
+    slider.addEventListener('keydown', function(e){
+      if (e.key === 'ArrowLeft') { e.preventDefault(); go(i - 1); restart(); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); go(i + 1); restart(); }
+    });
+    // pause on hover / focus / hidden tab
+    slider.addEventListener('mouseenter', pause);
+    slider.addEventListener('mouseleave', play);
+    slider.addEventListener('focusin', pause);
+    slider.addEventListener('focusout', play);
+    document.addEventListener('visibilitychange', function(){ if (document.hidden) pause(); else play(); });
+    // touch swipe
+    var sx = null;
+    slider.addEventListener('pointerdown', function(e){ sx = e.clientX; pause(); });
+    slider.addEventListener('pointerup', function(e){
+      if (sx === null) return;
+      var dx = e.clientX - sx; sx = null;
+      if (Math.abs(dx) > 40) go(dx < 0 ? i + 1 : i - 1);
+      play();
+    });
+    go(0); play();
+  });
+
+  // ── spotlight glow follow on cards ───────────────────
+  if (window.matchMedia('(pointer: fine)').matches) {
+    document.querySelectorAll('.card, .person').forEach(function(el){
+      el.addEventListener('mousemove', function(e){
+        var r = el.getBoundingClientRect();
+        el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+        el.style.setProperty('--my', (e.clientY - r.top) + 'px');
+      });
     });
   }
 })();
@@ -633,4 +724,26 @@ function pageHero({ eyebrow, title, lead, bg, crumbs = [] }) {
   </section>`;
 }
 
-export { esc, IMG, LOGO, pageShell, pageHero, siteHeader, siteFooter };
+// ── Slider (accessible carousel) ─────────────────────────────────────────────
+// slides: [{ img, alt, title, text, href, hrefLabel }]
+function slider({ slides, id = '', autoplay = true }) {
+  const items = slides
+    .map((s, idx) => {
+      const cap = s.title
+        ? `<div class="slide-cap"><b>${s.href ? `<a href="${s.href}" ${s.href.startsWith('http') ? 'target="_blank" rel="noopener"' : ''}>${esc(s.title)} ↗</a>` : esc(s.title)}</b>${s.text ? `<span>${s.text}</span>` : ''}</div>`
+        : '';
+      return `<div class="slide" role="group" aria-roledescription="slide" aria-label="${idx + 1} of ${slides.length}"><img src="${IMG}/${s.img}" alt="${esc(s.alt || s.title || '')}" loading="${idx === 0 ? 'eager' : 'lazy'}" />${cap}</div>`;
+    })
+    .join('');
+  const dots = slides
+    .map((_, idx) => `<button type="button" data-idx="${idx}" aria-label="Go to slide ${idx + 1}" aria-current="${idx === 0}"></button>`)
+    .join('');
+  return `<div class="slider reveal"${id ? ` id="${id}"` : ''}${autoplay ? ' data-autoplay' : ''} role="region" aria-roledescription="carousel" tabindex="0" style="outline:none">
+    <div class="slider-track">${items}</div>
+    <button class="slider-btn prev" type="button" aria-label="Previous slide">‹</button>
+    <button class="slider-btn next" type="button" aria-label="Next slide">›</button>
+    <div class="slider-dots">${dots}</div>
+  </div>`;
+}
+
+export { esc, IMG, LOGO, pageShell, pageHero, siteHeader, siteFooter, slider };

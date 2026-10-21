@@ -22,7 +22,7 @@ function money(cents) {
 // ── /belt-testing/mock-stripe?memberId=… ────────────────────────────────────
 // A Stripe-lookalike checkout page. Reads the KV stash to show the correct
 // tier/amount. "Pay" button redirects to /belt-testing/post-payment.
-export function buildMockStripePage(app, memberId, cfg) {
+export function buildMockStripePage(app, memberId, cfg, token) {
   const total = app?.totalCents ?? 0;
   const tierLabel = app?.tierLabel || 'Belt Testing';
   const testDate = cfg?.testDateDisplay || '';
@@ -130,7 +130,7 @@ h2{font-size:1rem;margin:0 0 20px;color:#1a1f36}
     if(!num.value||!exp.value||!cvc.value){err.style.display='block';return}
     err.style.display='none';
     btn.disabled=true;btn.textContent='Processing…';
-    setTimeout(function(){location.href='/belt-testing/post-payment?memberId=${esc(memberId)}&demo=1'},1400);
+    setTimeout(function(){location.href='/belt-testing/post-payment?memberId=${esc(memberId)}&demo=1${token ? '&token=' + encodeURIComponent(token) : ''}'},1400);
   });
 })();
 </script></body></html>`;
@@ -275,7 +275,14 @@ body{margin:0;background:#f0f2f5;color:#222;font-family:'Inter',-apple-system,sa
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({memberId:${JSON.stringify(memberId)}})
-    }).finally(function(){location.href='/belt-testing/thank-you'});
+    }).then(function(r){
+      if(!r.ok){throw new Error('Server error '+r.status)}
+      location.href='/belt-testing/thank-you';
+    }).catch(function(e){
+      finish.disabled=false;finish.textContent='Try again';
+      var msg=document.getElementById('finish-err');
+      if(msg){msg.textContent='Could not submit — '+e.message+'. Please try again.';msg.style.display='block';}
+    });
   });
 })();
 </script></body></html>`;
