@@ -351,6 +351,7 @@ details.acc .acc-body p{color:#b8b8bd;margin:0 0 10px;font-size:.92rem}
 .slide{position:relative;flex:0 0 100%;overflow:hidden}
 .slide img{width:100%;height:100%;object-fit:cover}
 .slide-cap{position:absolute;left:0;right:0;bottom:0;padding:64px 26px 20px;background:linear-gradient(180deg,transparent,rgba(5,5,6,.93) 68%);pointer-events:none}
+.slide-cap a{pointer-events:auto}
 .slide-cap b{display:block;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:clamp(.95rem,2vw,1.15rem);color:#fff}
 .slide-cap span{color:#c9c9cd;font-size:.86rem;display:block;margin-top:2px}
 .slide-cap a{color:#e4b666;text-decoration:none;border-bottom:1px solid rgba(212,162,74,.4)}
