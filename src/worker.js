@@ -29,6 +29,7 @@ import { applySiteSettings } from './siteSettings.js';
 import { getPublishedDoc } from './contentDocs.js';
 import { applyDesign, findCustomPage } from './siteDesign.js';
 import { renderCustomPage } from './pageRender.js';
+import { handleLegacy } from './legacyRoutes.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -46,6 +47,18 @@ export default {
     if (url.pathname === '/__worker/health') {
       return json({ ok: true, worker: 'ima-karate-worker', v: 2, origin: env.ORIGIN });
     }
+
+    // ── www → apex (imakarate.com is the main address) ───────────────────────
+    if (url.hostname === 'www.imakarate.com') {
+      url.hostname = 'imakarate.com';
+      return Response.redirect(url.toString(), 301);
+    }
+
+    // ── Old WordPress addresses → new pages / stored uploads ────────────────
+    try {
+      const legacy = await handleLegacy(request, env, url);
+      if (legacy) return legacy;
+    } catch (e) { console.warn('legacy route failed:', e.message); }
 
     // ── Admin area (chat with Claude, content drafts/revisions, settings) ───
     if (url.pathname === '/admin' || url.pathname.startsWith('/admin/') || url.pathname.startsWith('/img-uploads/')) {

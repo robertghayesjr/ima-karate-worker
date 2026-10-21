@@ -1,0 +1,18 @@
+import worker from '../src/worker.js';
+let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
+const kv = new Map(); const meta = new Map();
+const env = { IMA_KARATE: { get: async (k) => kv.get(k) ?? null, put: async (k, v, o) => { kv.set(k, v); meta.set(k, o?.metadata); }, delete: async (k) => kv.delete(k), getWithMetadata: async (k) => ({ value: kv.get(k) ?? null, metadata: meta.get(k) ?? null }) } };
+await env.IMA_KARATE.put('wp-upload:2025/07/2025-Gasshuku.pdf', new Uint8Array([37, 80, 68, 70]).buffer, { metadata: { contentType: 'application/pdf' } });
+globalThis.fetch = async () => new Response('origin', { status: 404 });
+const get = (u) => worker.fetch(new Request(u), env, { waitUntil() {}, passThroughOnException() {} });
+let r = await get('https://www.imakarate.com/about/?a=1'); ok(r.status === 301 && r.headers.get('Location') === 'https://imakarate.com/about/?a=1', 'www → apex');
+r = await get('https://imakarate.com/contact-us/'); ok(r.status === 301 && r.headers.get('Location') === 'https://imakarate.com/contact', 'contact-us → contact');
+r = await get('https://imakarate.com/about/ima-organizational-structure/'); ok(r.headers.get('Location')?.endsWith('/about/structure'), 'org structure mapped');
+r = await get('https://imakarate.com/2025-gasshuku/'); ok(r.status === 301 && r.headers.get('Location').endsWith('/news-events'), 'old post → news');
+r = await get('https://imakarate.com/category/belt-testing/'); ok(r.headers.get('Location')?.endsWith('/news-events'), 'category → news');
+r = await get('https://imakarate.com/wp-content/uploads/2025/07/2025-Gasshuku.pdf'); ok(r.status === 200 && r.headers.get('Content-Type') === 'application/pdf', 'old upload served from KV');
+r = await get('https://imakarate.com/wp-content/uploads/nope.jpg'); ok(r.status === 404, 'missing upload 404');
+r = await get('https://imakarate.com/wp-login.php'); ok(r.status === 404, 'wp-login 404');
+r = await get('https://imakarate.com/about/hanshi/'); ok(r.status === 200, 'existing page path still served');
+r = await get('https://imakarate.com/'); ok(r.status === 200, 'home served');
+console.log('\n' + fails + ' failures'); process.exit(fails ? 1 : 0);
