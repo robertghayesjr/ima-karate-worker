@@ -27,6 +27,7 @@ import { handleSiteRoutes } from './siteRoutes.js';
 import { handleAdminRoutes } from './adminRoutes.js';
 import { applySiteSettings } from './siteSettings.js';
 import { getPublishedDoc } from './contentDocs.js';
+import { docusignKeepAlive } from './docusign.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +36,11 @@ const CORS_HEADERS = {
 };
 
 export default {
+  // Daily: keep the DocuSign sign-in alive (refresh token renews 30 days per use).
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(docusignKeepAlive(env).then((r) => console.log('docusign keepalive', JSON.stringify(r))));
+  },
+
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
 

@@ -455,11 +455,34 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
       '<div class="doc-actions" style="margin-top:16px"><button class="btn btn-gold" id="cf-save">Save Settings</button></div>' +
       '<div class="doc-head" style="margin-top:32px"><h2>DocuSign Waivers</h2><span class="badge published">Stored in DocuSign</span></div>' +
       '<div class="notice">Signed waivers live in DocuSign. Edit the waiver wording in DocuSign under Templates, and find every waiver in DocuSign under Agreements (folder: IMA Belt Tests).</div>' +
-      '<div class="doc-actions"><button class="btn" id="ds-test">Check connection</button><button class="btn" id="ds-template">Set up template in DocuSign</button><button class="btn" id="ds-refresh">Refresh waivers</button></div>' +
+      '<div class="rev-item" id="ds-status"><span>Checking DocuSign connection...</span></div>' +
+      '<div class="doc-actions"><button class="btn btn-gold" id="ds-connect">Connect DocuSign</button><button class="btn btn-ghost" id="ds-disconnect" style="display:none">Disconnect</button><button class="btn" id="ds-test">Check connection</button><button class="btn" id="ds-template">Set up template in DocuSign</button><button class="btn" id="ds-refresh">Refresh waivers</button></div>' +
       '<div class="save-note" id="ds-note"></div>' +
       '<div id="ds-list"></div>';
 
     var dsNote = function(t){ document.getElementById('ds-note').textContent = t; };
+    var loadDsStatus = function(){
+      api('/admin/api/docusign/status').then(function(st){
+        var el = document.getElementById('ds-status');
+        if (!el) return;
+        el.innerHTML = st.connected
+          ? '<span><span class="badge published">Connected</span> ' + esc(st.userName || st.email) + (st.accountName ? ' &middot; ' + esc(st.accountName) : '') + '</span><span class="help">since ' + new Date(st.connectedAt).toLocaleDateString() + (st.lastError ? ' &middot; last refresh failed, reconnect' : '') + '</span>'
+          : '<span><span class="badge draft">Not connected</span> Click Connect DocuSign and sign in once with the DocuSign account that should send waivers.</span>';
+        document.getElementById('ds-connect').textContent = st.connected ? 'Reconnect' : 'Connect DocuSign';
+        document.getElementById('ds-disconnect').style.display = st.connected ? '' : 'none';
+      }).catch(function(e){ dsNote('Could not read DocuSign status: ' + e.message); });
+    };
+    loadDsStatus();
+    document.getElementById('ds-connect').addEventListener('click', function(){
+      dsNote('Opening DocuSign sign-in...');
+      api('/admin/api/docusign/connect', {method:'POST'})
+        .then(function(j){ window.location.href = j.url; })
+        .catch(function(e){ dsNote('Could not start sign-in: ' + e.message); });
+    });
+    document.getElementById('ds-disconnect').addEventListener('click', function(){
+      if (!confirm('Disconnect DocuSign? Waivers will stop sending until you connect again.')) return;
+      api('/admin/api/docusign/disconnect', {method:'POST'}).then(function(){ dsNote('Disconnected.'); loadDsStatus(); }).catch(function(e){ dsNote(e.message); });
+    });
     document.getElementById('ds-test').addEventListener('click', function(){
       dsNote('Checking...');
       api('/admin/api/belt-config/docusign-test', {method:'POST'})

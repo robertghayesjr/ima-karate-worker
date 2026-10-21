@@ -176,12 +176,124 @@ async function fetchAccessToken(env) {
   return data.access_token;
 }
 
+// ─── Authorization Code Grant (no RSA key needed) ───────────────────────────
+// The site owner clicks "Connect DocuSign" in the admin and signs in once.
+// We keep the refresh token in KV; with the `extended` scope each refresh
+// renews it for another 30 days, and a daily cron keeps it alive.
+// Works as a confidential client (DOCUSIGN_SECRET_KEY set) or a public
+// client with PKCE (no secret key).
+const OAUTH_KV_KEY = 'docusign:oauth';
+const OAUTH_STATE_PREFIX = 'docusign:oauth-state:';
+
+function oauthHost(env) { return env.DOCUSIGN_OAUTH_HOST || 'account.docusign.com'; }
+export function oauthRedirectUri(env) {
+  return `${(env.PUBLIC_BASE_URL || 'https://ima.rob-hayes.com').replace(/\/$/, '')}/admin/api/docusign/callback`;
+}
+async function getOAuthRecord(env) {
+  try { const raw = await env.IMA_KARATE.get(OAUTH_KV_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; }
+}
+function randomB64url(n) { return b64urlEncode(crypto.getRandomValues(new Uint8Array(n)).buffer); }
+
+async function tokenRequest(env, params) {
+  const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+  const body = new URLSearchParams(params);
+  if (env.DOCUSIGN_SECRET_KEY) {
+    headers.Authorization = 'Basic ' + btoa(`${env.DOCUSIGN_INTEGRATION_KEY}:${env.DOCUSIGN_SECRET_KEY}`);
+  } else {
+    body.set('client_id', env.DOCUSIGN_INTEGRATION_KEY);
+  }
+  const res = await fetch(`https://${oauthHost(env)}/oauth/token`, { method: 'POST', headers, body: body.toString() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`DocuSign sign-in failed (${res.status}): ${data.error || ''} ${data.error_description || ''}`.trim());
+  return data;
+}
+
+/** Step 1: build the DocuSign sign-in URL (state + PKCE stored for 10 min). */
+export async function startOAuth(env) {
+  if (!env.DOCUSIGN_INTEGRATION_KEY) throw new Error('DOCUSIGN_INTEGRATION_KEY is not set');
+  const state = randomB64url(24);
+  const verifier = randomB64url(48);
+  const challenge = b64urlEncode(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+  await env.IMA_KARATE.put(OAUTH_STATE_PREFIX + state, verifier, { expirationTtl: 600 });
+  const q = new URLSearchParams({
+    response_type: 'code',
+    scope: 'signature extended',
+    client_id: env.DOCUSIGN_INTEGRATION_KEY,
+    redirect_uri: oauthRedirectUri(env),
+    state,
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+  });
+  return `https://${oauthHost(env)}/oauth/auth?${q}`;
+}
+
+/** Step 2: DocuSign redirects back with ?code&state — exchange + store. */
+export async function finishOAuth(env, code, state) {
+  if (!code || !state || !/^[A-Za-z0-9_-]{20,64}$/.test(state)) throw new Error('Missing or invalid sign-in response');
+  const verifier = await env.IMA_KARATE.get(OAUTH_STATE_PREFIX + state);
+  if (!verifier) throw new Error('This sign-in link expired. Go back to the admin and click Connect DocuSign again.');
+  await env.IMA_KARATE.delete(OAUTH_STATE_PREFIX + state);
+  const tok = await tokenRequest(env, { grant_type: 'authorization_code', code, code_verifier: verifier });
+  if (!tok.refresh_token) throw new Error('DocuSign did not return a refresh token');
+  const uiRes = await fetch(`https://${oauthHost(env)}/oauth/userinfo`, { headers: { Authorization: `Bearer ${tok.access_token}` } });
+  const ui = await uiRes.json().catch(() => ({}));
+  const accounts = ui.accounts || [];
+  const acct = accounts.find((a) => a.account_id === env.DOCUSIGN_ACCOUNT_ID) || accounts.find((a) => a.is_default) || accounts[0];
+  if (!acct) throw new Error('No DocuSign account found for this login');
+  const record = {
+    refreshToken: tok.refresh_token,
+    accountId: acct.account_id, baseUri: acct.base_uri, accountName: acct.account_name || '',
+    userName: ui.name || '', email: ui.email || '', userId: ui.sub || '',
+    connectedAt: new Date().toISOString(), refreshedAt: new Date().toISOString(),
+  };
+  await env.IMA_KARATE.put(OAUTH_KV_KEY, JSON.stringify(record));
+  await env.IMA_KARATE.put(TOKEN_KV_KEY, tok.access_token, { expirationTtl: Math.max(300, (tok.expires_in || 28800) - 600) });
+  return record;
+}
+
+async function refreshOAuth(env, record) {
+  const tok = await tokenRequest(env, { grant_type: 'refresh_token', refresh_token: record.refreshToken });
+  const updated = { ...record, refreshToken: tok.refresh_token || record.refreshToken, refreshedAt: new Date().toISOString(), lastError: undefined };
+  await env.IMA_KARATE.put(OAUTH_KV_KEY, JSON.stringify(updated));
+  await env.IMA_KARATE.put(TOKEN_KV_KEY, tok.access_token, { expirationTtl: Math.max(300, (tok.expires_in || 28800) - 600) });
+  return tok.access_token;
+}
+
+export async function disconnectOAuth(env) {
+  await env.IMA_KARATE.delete(OAUTH_KV_KEY);
+  await env.IMA_KARATE.delete(TOKEN_KV_KEY);
+}
+
+/** Connection status for the admin (no secrets). */
+export async function connectionStatus(env) {
+  const r = await getOAuthRecord(env);
+  if (r) return { mode: 'signin', connected: true, userName: r.userName, email: r.email, accountName: r.accountName, connectedAt: r.connectedAt, refreshedAt: r.refreshedAt, lastError: r.lastError || null, redirectUri: oauthRedirectUri(env) };
+  const k = describeKey(env.DOCUSIGN_RSA_PRIVATE_KEY);
+  return { mode: k.header !== 'none' ? 'jwt' : 'none', connected: false, redirectUri: oauthRedirectUri(env) };
+}
+
+/** Daily cron: refresh so the 30-day refresh token never lapses. */
+export async function docusignKeepAlive(env) {
+  const r = await getOAuthRecord(env);
+  if (!r) return { skipped: true };
+  try {
+    await refreshOAuth(env, r);
+    return { ok: true };
+  } catch (e) {
+    await env.IMA_KARATE.put(OAUTH_KV_KEY, JSON.stringify({ ...r, lastError: `${new Date().toISOString()}: ${e.message}` }));
+    return { ok: false, error: e.message };
+  }
+}
+
 async function getAccessToken(env) {
   // Cache the access token in KV so we don't sign a JWT on every request.
   try {
     const cached = await env.IMA_KARATE.get(TOKEN_KV_KEY);
     if (cached) return cached;
   } catch { /* ignore KV read errors */ }
+  // Prefer the one-time sign-in connection; fall back to JWT (RSA key).
+  const oauth = await getOAuthRecord(env);
+  if (oauth) return refreshOAuth(env, oauth);
   const token = await fetchAccessToken(env);
   try {
     await env.IMA_KARATE.put(TOKEN_KV_KEY, token, { expirationTtl: TOKEN_TTL_SECONDS });
@@ -197,6 +309,18 @@ async function getAccessToken(env) {
  * No envelope is created or sent.
  */
 export async function testConnection(env) {
+  const oauth = await getOAuthRecord(env);
+  if (oauth) {
+    try {
+      await refreshOAuth(env, oauth);
+      return { ok: true, mode: 'signin', hint: `Connected to DocuSign as ${oauth.userName || oauth.email} (${oauth.accountName}).` };
+    } catch (e) {
+      return { ok: false, mode: 'signin', error: e.message, hint: 'The DocuSign sign-in has expired or was revoked. Click Connect DocuSign to sign in again.' };
+    }
+  }
+  if (describeKey(env.DOCUSIGN_RSA_PRIVATE_KEY).header === 'none') {
+    return { ok: false, mode: 'none', hint: 'DocuSign is not connected yet. Click Connect DocuSign and sign in once.' };
+  }
   try {
     const token = await fetchAccessToken(env);
     return { ok: true, hint: 'JWT grant succeeded — credentials and consent are valid.' };

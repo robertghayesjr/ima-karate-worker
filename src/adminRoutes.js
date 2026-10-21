@@ -23,7 +23,7 @@ import { getBeltConfig, updateBeltConfig } from './beltConfig.js';
 import { buildAdminApp } from './adminApp.js';
 import { applySiteSettings, SOCIAL_ICONS } from './siteSettings.js';
 import { buildHomePage } from './sitePagesMain.js';
-import { testConnection, listBeltTestEnvelopes, createBeltTestTemplate, findBeltTestTemplate } from './docusign.js';
+import { testConnection, listBeltTestEnvelopes, createBeltTestTemplate, findBeltTestTemplate, startOAuth, finishOAuth, connectionStatus, disconnectOAuth } from './docusign.js';
 import { buildNewsEventsPage } from './sitePagesWorld.js';
 import { buildClassSchedulePage } from './sitePagesStudent.js';
 
@@ -125,6 +125,27 @@ export async function handleAdminRoutes(request, env, url) {
     res.headers.append('Set-Cookie',
       `ima_admin_sess=${token}; Path=/; Max-Age=${SESSION_TTL}; Secure; HttpOnly; SameSite=Strict`);
     return res;
+  }
+
+  // DocuSign sign-in return (cross-site redirect: no admin cookie arrives;
+  // protected by the single-use random state created by an admin session).
+  if (p === '/admin/api/docusign/callback' && request.method === 'GET') {
+    const url = new URL(request.url);
+    let ok = true, msg;
+    if (url.searchParams.get('error')) { ok = false; msg = url.searchParams.get('error_description') || url.searchParams.get('error'); }
+    else {
+      try {
+        const r = await finishOAuth(env, url.searchParams.get('code'), url.searchParams.get('state'));
+        msg = `Connected to DocuSign as ${r.userName || r.email}${r.accountName ? ' (' + r.accountName + ')' : ''}.`;
+      } catch (e) { ok = false; msg = e.message; }
+    }
+    const safe = String(msg || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DocuSign</title>
+<body style="background:#0a0a0b;color:#f4f4f5;font-family:Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0">
+<div style="max-width:520px;padding:32px;text-align:center"><h1 style="font-size:1.4rem">${ok ? 'DocuSign connected' : 'DocuSign connection failed'}</h1>
+<p style="color:#bbb">${safe}</p><p><a href="/admin" style="color:#d4a24a">Back to the admin</a></p></div></body>`, {
+      status: ok ? 200 : 400, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+    });
   }
 
   // ── Session-gated endpoints ──
@@ -236,6 +257,17 @@ export async function handleAdminRoutes(request, env, url) {
     // Diagnostic only: exchanges the JWT for an access token. No envelope
     // is created or sent. Safe to run any time.
     return json(await testConnection(env));
+  }
+  if (p === '/admin/api/docusign/connect' && request.method === 'POST') {
+    try { return json({ ok: true, url: await startOAuth(env) }); }
+    catch (e) { return json({ ok: false, error: e.message }, 400); }
+  }
+  if (p === '/admin/api/docusign/status' && request.method === 'GET') {
+    return json(await connectionStatus(env));
+  }
+  if (p === '/admin/api/docusign/disconnect' && request.method === 'POST') {
+    await disconnectOAuth(env);
+    return json({ ok: true });
   }
   // Waiver list, read live from DocuSign (DocuSign is the system of record).
   if (p === '/admin/api/docusign/waivers' && request.method === 'GET') {
