@@ -299,7 +299,7 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
     strip.style.display = 'flex';
     pendingAttachments.forEach(function(a, i){
       var d = document.createElement('div'); d.className = 'att-item';
-      if (/^image\//.test(a.type)) {
+      if (/^image\\//.test(a.type)) {
         var im = document.createElement('img'); im.src = '/admin/api/attachment/' + a.id; im.alt = a.name; d.appendChild(im);
         var use = document.createElement('button'); use.className = 'use'; use.textContent = 'Use on site';
         use.title = 'Publish this image as a site image and copy its URL';
@@ -318,12 +318,6 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
       } else {
         var c = document.createElement('span'); c.className = 'chip'; c.textContent = '📄 ' + a.name; d.appendChild(c);
       }
-      var x = document.createElement('button'); x.className = 'x'; x.textContent = '×'; x.title = 'Remove';
-      x.onclick = function(){ pendingAttachments.splice(i,1); renderAttStrip(); };
-      d.appendChild(x);
-      strip.appendChild(d);
-    });
-  }
       var x = document.createElement('button'); x.className = 'x'; x.textContent = '×'; x.title = 'Remove';
       x.onclick = function(){ pendingAttachments.splice(i,1); renderAttStrip(); };
       d.appendChild(x);
