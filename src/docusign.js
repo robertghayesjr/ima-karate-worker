@@ -173,12 +173,25 @@ async function getAccessToken(env) {
  * @param {object} payload  Result of buildDocusignPayload() in beltRoutes.js
  * @returns {Promise<{envelopeId: string, status: string}>}
  */
+// Embedded waiver document (docs/kyu-belt-testing-template.pdf, anchors in
+// white). Used when DOCUSIGN_TEMPLATE_ID is not set — the envelope is built
+// directly from this document with anchor-based tabs, so no DocuSign template
+// needs to exist in the account.
+const WAIVER_PDF_B64 = 'JVBERi0xLjMKJZOMi54gUmVwb3J0TGFiIEdlbmVyYXRlZCBQREYgZG9jdW1lbnQgKG9wZW5zb3VyY2UpCjEgMCBvYmoKPDwKL0YxIDIgMCBSIC9GMiAzIDAgUgo+PgplbmRvYmoKMiAwIG9iago8PAovQmFzZUZvbnQgL0hlbHZldGljYSAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyAvTmFtZSAvRjEgL1N1YnR5cGUgL1R5cGUxIC9UeXBlIC9Gb250Cj4+CmVuZG9iagozIDAgb2JqCjw8Ci9CYXNlRm9udCAvSGVsdmV0aWNhLUJvbGQgL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcgL05hbWUgL0YyIC9TdWJ0eXBlIC9UeXBlMSAvVHlwZSAvRm9udAo+PgplbmRvYmoKNCAwIG9iago8PAovQ29udGVudHMgOCAwIFIgL01lZGlhQm94IFsgMCAwIDYxMiA3OTIgXSAvUGFyZW50IDcgMCBSIC9SZXNvdXJjZXMgPDwKL0ZvbnQgMSAwIFIgL1Byb2NTZXQgWyAvUERGIC9UZXh0IC9JbWFnZUIgL0ltYWdlQyAvSW1hZ2VJIF0KPj4gL1JvdGF0ZSAwIC9UcmFucyA8PAoKPj4gCiAgL1R5cGUgL1BhZ2UKPj4KZW5kb2JqCjUgMCBvYmoKPDwKL1BhZ2VNb2RlIC9Vc2VOb25lIC9QYWdlcyA3IDAgUiAvVHlwZSAvQ2F0YWxvZwo+PgplbmRvYmoKNiAwIG9iago8PAovQXV0aG9yIChhbm9ueW1vdXMpIC9DcmVhdGlvbkRhdGUgKEQ6MjAyNjEwMjExNDUwMjArMDAnMDAnKSAvQ3JlYXRvciAoYW5vbnltb3VzKSAvS2V5d29yZHMgKCkgL01vZERhdGUgKEQ6MjAyNjEwMjExNDUwMjArMDAnMDAnKSAvUHJvZHVjZXIgKFJlcG9ydExhYiBQREYgTGlicmFyeSAtIFwob3BlbnNvdXJjZVwpKSAKICAvU3ViamVjdCAodW5zcGVjaWZpZWQpIC9UaXRsZSAodW50aXRsZWQpIC9UcmFwcGVkIC9GYWxzZQo+PgplbmRvYmoKNyAwIG9iago8PAovQ291bnQgMSAvS2lkcyBbIDQgMCBSIF0gL1R5cGUgL1BhZ2VzCj4+CmVuZG9iago4IDAgb2JqCjw8Ci9GaWx0ZXIgWyAvQVNDSUk4NURlY29kZSAvRmxhdGVEZWNvZGUgXSAvTGVuZ3RoIDE2ODAKPj4Kc3RyZWFtCkdhdG4nQ010K08nU2FCczx1YnFkWCotRUpGK0ZBYyllaGhaUSFCUEtHODRnO0E3YzYwb28qJi5QREZfJ2EtV0whNkZVWUsrVjooImY/Xl4vKzhcJFAjW2FrOC84S2QiKjAvP1NMX0lqMiZHTE8iYVFHOCU/ZU9US191b21haklcb01TUXFZNmEnTDNRSE8xKlpyKC4/OUInMGomMzRZWEE7XmRmPiNUbXRLX29bImw2VShJNV9yVSl0NSdvTjlCOXNFUStocmEvcE8tKnROLWhfMkdnRmAwI0xMLXBvcEo0VmNUKDteRSknTDtUNjBOLWsrWkdQTmNAZ1RpO0ZzXFUnTmM6LGY+WyVCcDlCTytqMSlZVSwzbFRBcidyVE9KO1JeIW1cZjZnXEhoQkpPZy1MXFJWKC9URVQjLzFsMTs/IjdoUz5uJjRfc146az5DYSE4WltERDchYzgxYzxjQmkyT1lKN1ZrbUZYTl0zZFZWRGxYZTlRb1E6VC1jVzEhJUEyKGVNLzk9YmBRUUpQRmJEKyhJLks0WyIuNFkmKThKLGBxXi4oQ3NfTEktP25AYlVSNlErLlA6L2tWaytCSEJlbk51ZTV1V0pxbltWdTYvTm9ISyhEYFMnQUdxMC0nXzd0KTU6P001VyZfOGx1dGhKKkdwOVRLVDxOMXM2JCRGU0pJNEkvMnQzLTdnWU4oSitbNllbTi1rZ2JRIkFiNmEtMDo2Xzo0RkdHU01VUU40MDM4anEnbXBsZ24mZFk5TSpdcCRTPEs5WF9gMl5fP2xfYCFBVnUpQEs6MlJHa042aGgwPCVuaVtZOCdUaSZYI2tmWS06PUMhRzc7ZTwuKjFRKSJhYy4mS1Y+SzI+KG8xPitfLUtpJjhVb1o7UGMnPzVbb1o+UExxLDhKR1FHQ0k5W0xhTDJsU0ljOiNPVUM1Q1M9PDtvLDcyNFpaM09UM2ZNOXFXUzI5TmouQSc+PGlBXDk4Z21tRS0nR2JOTS9YSjdDNlw4JixmJSRfK2h1b1NpM1lBQGNScGdzJkJiOS5YXGVePyxfLy50TC1VXmZTWzpsJUJZNUFGM2BfUGxDOyhQUl9pVWheNl4mUDcyPUNYQmhHVlgvP19YWy1tYTZQUGBaLjg7RjtuTlJUcClQOSFENUNTSGdgTy9qR2hkdWZWM1o/OyFFaituNko2K1k9cDhubXJSWVgvZUxyZjhhazNkQlR1Zis+WEZdXEomNUYxQHMudChyZmYwam1rLmA5Z2NzTzwpJDtxamNIUl9yJUlddDx0UkkkNzdQS2M9VWcjJjFOMCRkb2hTIi5eYlppJnI3YFFuNCNAdSM/OCIzJmlOLjluUFlNPkpOYiFAYmM/aWgiVjZOVSsnUUpEXz4jPD1bRVwsdVYoNEQ9J1YtbFQpU1xtbjRjI0paV2RHMiJuayY6W2dGc1BJP3NPQE8zV1s7SkxxJGklQnNOKUhfJSc7anNFaF0zcm08OG9yOj45UlNYRlFGcz45OmJBN2tLYSxpZlk0UHNrWEY3Jy8hayI6cSZFPVE/VXFlSFRAYC1zTyNraTNTLGohT09ZY2YyaiFSaU0oNHJ1ZiNAQ0tGS1YmJUt1QlgxZV5xNFk3aWsiOkxMI1pkVWdPWDkkSUE7NWo2ITomQ0xvM2JzIWQ5dW9MXTMtbUA9YkYrcm1IMDZWIlciNmwmOkhPSGtiS2I2NDI2TyVHKSkqV3BRTmdGWVtaPG9JVXQ/QjBOQms0blNhPWxfKGJTc2wrcG9CamlsOE4kQGJvTlhLakBLZDdnPF9kbjNXJjBcPTcyOT86PmRKVFpeMFteUWc1JTBsLUNlTGtjU0MiV2ZbWE5Hc1dtRDQuK05OQ3FjTiwpTUw9YFEuNFtaTElxTVRTIl07Q0ZJbFktR3InPyshQkEzOTVfQSU2OzlDJy9RSz1EaF9sTU8vKUw+XjduaG5CRTopVGlrQEVaRWE3LmYyUFQ6TSFATmtgJnJqQmRlQE9CQlprb1BXbVs7cGJaMWhQMHJlaVU4PF1tcilxM2AzPlJpPF9yLHIjNDgxISlYZTpXJUBOWXVlaU03cyQ4UkhiU25ZWXEqIyNYSUFvRE4sJVJScVVBV21BN1NrdEUtXGtPOGZjbjApM3NgYFdSaTRXcEhFXTc6Oz5YaF0kLCVGJEQyYUFrYW5CTzI4X1FzbUtrTGkkJFY9LlglPypFamd0dVRAMFM+UXJJPmtvcjxJZE8+VDN+PmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDkKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDYxIDAwMDAwIG4gCjAwMDAwMDAxMDIgMDAwMDAgbiAKMDAwMDAwMDIwOSAwMDAwMCBuIAowMDAwMDAwMzIxIDAwMDAwIG4gCjAwMDAwMDA1MTQgMDAwMDAgbiAKMDAwMDAwMDU4MiAwMDAwMCBuIAowMDAwMDAwODQzIDAwMDAwIG4gCjAwMDAwMDA5MDIgMDAwMDAgbiAKdHJhaWxlcgo8PAovSUQgCls8MTNiYzc0NTMyNTlkNDRjYjlhNTU1NGZjMTE5NjFkMGI+PDEzYmM3NDUzMjU5ZDQ0Y2I5YTU1NTRmYzExOTYxZDBiPl0KJSBSZXBvcnRMYWIgZ2VuZXJhdGVkIFBERiBkb2N1bWVudCAtLSBkaWdlc3QgKG9wZW5zb3VyY2UpCgovSW5mbyA2IDAgUgovUm9vdCA1IDAgUgovU2l6ZSA5Cj4+CnN0YXJ0eHJlZgoyNjczCiUlRU9GCg==';
+
+const ANCHOR_LABELS = [
+  'salutation', 'first_name', 'middle_name', 'last_name', 'age',
+  'membership_number', 'present_belt', 'email', 'phone', 'dojo',
+  'tier_label', 'tier_id', 'base_amount', 'manual_amount', 'late_amount',
+  'total_amount', 'wants_manual', 'is_late', 'test_date', 'testing_time', 'dojo_location',
+];
+
 export async function sendBeltTestEnvelope(env, payload) {
   const accountId = env.DOCUSIGN_ACCOUNT_ID;
-  const templateId = env.DOCUSIGN_TEMPLATE_ID;
+  const templateId = env.DOCUSIGN_TEMPLATE_ID; // optional — document path used when unset
   const baseUri = env.DOCUSIGN_BASE_URI;
-  if (!accountId || !templateId || !baseUri) {
-    throw new Error('DocuSign env missing DOCUSIGN_ACCOUNT_ID / DOCUSIGN_TEMPLATE_ID / DOCUSIGN_BASE_URI');
+  if (!accountId || !baseUri) {
+    throw new Error('DocuSign env missing DOCUSIGN_ACCOUNT_ID / DOCUSIGN_BASE_URI');
   }
 
   const accessToken = await getAccessToken(env);
@@ -189,24 +202,77 @@ export async function sendBeltTestEnvelope(env, payload) {
     value: String(value ?? ''),
   }));
 
-  const envelopeDef = {
-    emailSubject: `IMA Karate belt test — sign for ${payload.testDateDisplay || payload.testDate}`,
-    status: 'sent',
-    templateId,
-    templateRoles: [
-      {
-        roleName: 'Student',
-        name: payload.signerName,
-        email: payload.signerEmail,
-        tabs: { textTabs },
-      },
+  const customFields = {
+    textCustomFields: [
+      { name: 'memberId', value: payload.metadata?.memberId || '', required: 'false', show: 'false' },
     ],
-    customFields: {
-      textCustomFields: [
-        { name: 'memberId', value: payload.metadata?.memberId || '', required: 'false', show: 'false' },
-      ],
-    },
   };
+  const emailSubject = `IMA Karate belt test — sign for ${payload.testDateDisplay || payload.testDate}`;
+
+  let envelopeDef;
+  if (templateId) {
+    // Template path (if a template exists in the account).
+    envelopeDef = {
+      emailSubject,
+      status: 'sent',
+      templateId,
+      templateRoles: [
+        {
+          roleName: 'Student',
+          name: payload.signerName,
+          email: payload.signerEmail,
+          tabs: { textTabs },
+        },
+      ],
+      customFields,
+    };
+  } else {
+    // Document path — anchor-based tabs on the embedded waiver PDF.
+    // Each field's anchor string is \label\ (white text in the document);
+    // the signature anchor is /sn1/ and the date-signed anchor is /ds1/.
+    const anchoredTextTabs = ANCHOR_LABELS
+      .filter((label) => payload.tabs?.[label] !== undefined)
+      .map((label) => ({
+        tabLabel: label,
+        value: String(payload.tabs[label] ?? ''),
+        anchorString: '\\' + label + '\\',
+        anchorXOffset: '0',
+        anchorYOffset: '-0.02',
+        anchorCaseSensitive: 'true',
+        width: '160',
+      }));
+    envelopeDef = {
+      emailSubject,
+      status: 'sent',
+      documents: [
+        {
+          documentId: '1',
+          name: 'IMA Kyu Belt Test Application and Waiver.pdf',
+          fileExtension: 'pdf',
+          documentBase64: WAIVER_PDF_B64,
+        },
+      ],
+      recipients: {
+        signers: [
+          {
+            recipientId: '1',
+            name: payload.signerName,
+            email: payload.signerEmail,
+            tabs: {
+              textTabs: anchoredTextTabs,
+              signHereTabs: [
+                { anchorString: '/sn1/', anchorXOffset: '0', anchorYOffset: '0' },
+              ],
+              dateSignedTabs: [
+                { anchorString: '/ds1/', tabLabel: 'date_signed', anchorXOffset: '0', anchorYOffset: '0' },
+              ],
+            },
+          },
+        ],
+      },
+      customFields,
+    };
+  }
 
   const url = `${baseUri.replace(/\/$/, '')}/restapi/v2.1/accounts/${accountId}/envelopes`;
   const res = await fetch(url, {
