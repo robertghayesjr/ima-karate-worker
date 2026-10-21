@@ -379,13 +379,16 @@ async function handleChat(request, env) {
 
   try {
     for (let round = 0; round < 6; round++) {
+      const headers = {
+        'x-api-key': env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      };
+      // Org-scoped keys require the workspace ID header.
+      if (env.ANTHROPIC_WORKSPACE_ID) headers['anthropic-workspace-id'] = env.ANTHROPIC_WORKSPACE_ID;
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: {
-          'x-api-key': env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           model,
           max_tokens: 4096,
