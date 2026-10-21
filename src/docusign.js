@@ -232,112 +232,198 @@ const ANCHOR_LABELS = [
   'total_amount', 'wants_manual', 'is_late', 'test_date', 'testing_time', 'dojo_location',
 ];
 
-export async function sendBeltTestEnvelope(env, payload) {
+export const BELT_TEST_SOURCE = 'ima-belt-test';
+export const TEMPLATE_NAME = 'IMA Kyu Belt Test - Application & Waiver';
+const SIGNER_ROLE = 'Student';
+
+function dsBase(env) {
   const accountId = env.DOCUSIGN_ACCOUNT_ID;
-  const templateId = env.DOCUSIGN_TEMPLATE_ID; // optional — document path used when unset
   const baseUri = env.DOCUSIGN_BASE_URI;
-  if (!accountId || !baseUri) {
-    throw new Error('DocuSign env missing DOCUSIGN_ACCOUNT_ID / DOCUSIGN_BASE_URI');
+  if (!accountId || !baseUri) throw new Error('DocuSign env missing DOCUSIGN_ACCOUNT_ID / DOCUSIGN_BASE_URI');
+  return `${baseUri.replace(/\/$/, '')}/restapi/v2.1/accounts/${accountId}`;
+}
+
+// Authenticated DocuSign REST call. Retries once with a fresh token on 401.
+async function dsFetch(env, path, init = {}, retried = false) {
+  const token = await getAccessToken(env);
+  const res = await fetch(dsBase(env) + path, {
+    ...init,
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers || {}) },
+  });
+  if (res.status === 401 && !retried) {
+    try { await env.IMA_KARATE.delete(TOKEN_KV_KEY); } catch {}
+    return dsFetch(env, path, init, true);
   }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`DocuSign ${init.method || 'GET'} ${path.split('?')[0]} failed (${res.status}): ${JSON.stringify(data).slice(0, 400)}`);
+  return data;
+}
 
-  const accessToken = await getAccessToken(env);
+function siteBase(env) {
+  return (env.PUBLIC_BASE_URL || 'https://ima.rob-hayes.com').replace(/\/$/, '');
+}
 
-  // Convert the flat `tabs` map into the DocuSign textTabs array.
-  const textTabs = Object.entries(payload.tabs || {}).map(([label, value]) => ({
-    tabLabel: label,
-    value: String(value ?? ''),
-  }));
-
-  const customFields = {
+// Envelope custom fields: visible + searchable in DocuSign (Manage > filters),
+// and used by the webhook to tie an envelope back to a student.
+function beltCustomFields(payload) {
+  const t = payload.tabs || {};
+  const f = (name, value, show = 'true') => ({ name, value: String(value ?? '').slice(0, 100), show, required: 'false' });
+  return {
     textCustomFields: [
-      { name: 'memberId', value: payload.metadata?.memberId || '', required: 'false', show: 'false' },
+      f('Source', BELT_TEST_SOURCE, 'false'),
+      f('memberId', payload.metadata?.memberId || '', 'false'),
+      f('Student', payload.signerName),
+      f('Belt tier', t.tier_label || ''),
+      f('Present belt', t.present_belt || ''),
+      f('Test date', payload.testDateDisplay || payload.testDate || ''),
+      f('Total paid', t.total_amount ? `$${t.total_amount}` : ''),
     ],
   };
-  const emailSubject = `IMA Karate belt test — sign for ${payload.testDateDisplay || payload.testDate}`;
+}
+
+// Per-envelope status callback: no account-level Connect setup required.
+function beltEventNotification(env) {
+  return {
+    url: `${siteBase(env)}/belt-testing/docusign-connect`,
+    requireAcknowledgment: 'true',
+    loggingEnabled: 'true',
+    deliveryMode: 'SIM',
+    events: ['envelope-sent', 'envelope-delivered', 'envelope-completed', 'envelope-declined', 'envelope-voided'],
+    eventData: { version: 'restv2.1', format: 'json', includeData: ['custom_fields'] },
+  };
+}
+
+function anchoredTabs(values, { locked }) {
+  const textTabs = ANCHOR_LABELS
+    .filter((label) => values === null || values[label] !== undefined)
+    .map((label) => ({
+      tabLabel: label,
+      ...(values ? { value: String(values[label] ?? '') } : {}),
+      anchorString: '\\' + label + '\\',
+      anchorXOffset: '0',
+      anchorYOffset: '-0.02',
+      anchorUnits: 'inches',
+      anchorCaseSensitive: 'true',
+      anchorIgnoreIfNotPresent: 'true',
+      width: '160',
+      locked: locked ? 'true' : 'false',
+    }));
+  return {
+    textTabs,
+    signHereTabs: [{ anchorString: '/sn1/', anchorXOffset: '0', anchorYOffset: '0' }],
+    dateSignedTabs: [{ anchorString: '/ds1/', tabLabel: 'date_signed', anchorXOffset: '0', anchorYOffset: '0' }],
+  };
+}
+
+/**
+ * Send a belt-test waiver. Uses the DocuSign template (managed in DocuSign)
+ * when a template ID is configured — admin Belt Test tab or
+ * DOCUSIGN_TEMPLATE_ID — otherwise the embedded waiver PDF as a fallback.
+ */
+export async function sendBeltTestEnvelope(env, payload) {
+  const templateId = payload.templateId || env.DOCUSIGN_TEMPLATE_ID || '';
+  const values = payload.tabs || {};
+  const subjectName = payload.signerName ? ` - ${payload.signerName}` : '';
+  const emailSubject = `IMA Belt Test${subjectName} - ${payload.testDateDisplay || payload.testDate || ''}`.slice(0, 100);
+  const common = {
+    emailSubject,
+    emailBlurb: 'Please review and sign your IMA Karate belt test application and waiver.',
+    status: 'sent',
+    customFields: beltCustomFields(payload),
+    eventNotification: beltEventNotification(env),
+  };
 
   let envelopeDef;
   if (templateId) {
-    // Template path (if a template exists in the account).
     envelopeDef = {
-      emailSubject,
-      status: 'sent',
+      ...common,
       templateId,
-      templateRoles: [
-        {
-          roleName: 'Student',
-          name: payload.signerName,
-          email: payload.signerEmail,
-          tabs: { textTabs },
-        },
-      ],
-      customFields,
+      templateRoles: [{
+        roleName: SIGNER_ROLE,
+        name: payload.signerName,
+        email: payload.signerEmail,
+        tabs: { textTabs: Object.entries(values).map(([tabLabel, v]) => ({ tabLabel, value: String(v ?? '') })) },
+      }],
     };
   } else {
-    // Document path — anchor-based tabs on the embedded waiver PDF.
-    // Each field's anchor string is \label\ (white text in the document);
-    // the signature anchor is /sn1/ and the date-signed anchor is /ds1/.
-    const anchoredTextTabs = ANCHOR_LABELS
-      .filter((label) => payload.tabs?.[label] !== undefined)
-      .map((label) => ({
-        tabLabel: label,
-        value: String(payload.tabs[label] ?? ''),
-        anchorString: '\\' + label + '\\',
-        anchorXOffset: '0',
-        anchorYOffset: '-0.02',
-        anchorCaseSensitive: 'true',
-        width: '160',
-      }));
     envelopeDef = {
-      emailSubject,
-      status: 'sent',
-      documents: [
-        {
-          documentId: '1',
-          name: 'IMA Kyu Belt Test Application and Waiver.pdf',
-          fileExtension: 'pdf',
-          documentBase64: WAIVER_PDF_B64,
-        },
-      ],
-      recipients: {
-        signers: [
-          {
-            recipientId: '1',
-            name: payload.signerName,
-            email: payload.signerEmail,
-            tabs: {
-              textTabs: anchoredTextTabs,
-              signHereTabs: [
-                { anchorString: '/sn1/', anchorXOffset: '0', anchorYOffset: '0' },
-              ],
-              dateSignedTabs: [
-                { anchorString: '/ds1/', tabLabel: 'date_signed', anchorXOffset: '0', anchorYOffset: '0' },
-              ],
-            },
-          },
-        ],
-      },
-      customFields,
+      ...common,
+      documents: [{ documentId: '1', name: 'IMA Kyu Belt Test Application and Waiver.pdf', fileExtension: 'pdf', documentBase64: WAIVER_PDF_B64 }],
+      recipients: { signers: [{ recipientId: '1', name: payload.signerName, email: payload.signerEmail, tabs: anchoredTabs(values, { locked: true }) }] },
     };
   }
 
-  const url = `${baseUri.replace(/\/$/, '')}/restapi/v2.1/accounts/${accountId}/envelopes`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(envelopeDef),
+  const data = await dsFetch(env, '/envelopes', { method: 'POST', body: JSON.stringify(envelopeDef) });
+  const folder = await fileEnvelopeInFolder(env, data.envelopeId).catch((e) => ({ ok: false, error: e.message }));
+  return { envelopeId: data.envelopeId, status: data.status, usedTemplate: !!templateId, folder };
+}
+
+// Move an envelope into the "IMA Belt Tests" folder if that folder exists in
+// the sending user's DocuSign account (create it once in DocuSign).
+export async function fileEnvelopeInFolder(env, envelopeId) {
+  const name = (env.DOCUSIGN_FOLDER_NAME || 'IMA Belt Tests').toLowerCase();
+  const list = await dsFetch(env, '/folders?include=envelope_folders&sub_folder_depth=-1');
+  const flat = [];
+  const walk = (arr) => (arr || []).forEach((f) => { flat.push(f); walk(f.folders); });
+  walk(list.folders);
+  const folder = flat.find((f) => String(f.name || '').toLowerCase() === name);
+  if (!folder) return { ok: false, error: 'folder not found' };
+  await dsFetch(env, `/folders/${folder.folderId}`, { method: 'PUT', body: JSON.stringify({ envelopeIds: [envelopeId] }) });
+  return { ok: true, folderId: folder.folderId };
+}
+
+/** Fetch an envelope's real status + custom fields straight from DocuSign. */
+export async function getEnvelopeSummary(env, envelopeId) {
+  if (!/^[0-9a-f-]{36}$/i.test(envelopeId)) throw new Error('bad envelope id');
+  const e = await dsFetch(env, `/envelopes/${envelopeId}?include=custom_fields`);
+  const fields = {};
+  (e.customFields?.textCustomFields || []).forEach((f) => { fields[f.name] = f.value; });
+  return { envelopeId, status: e.status, completedDateTime: e.completedDateTime || null, sentDateTime: e.sentDateTime || null, fields };
+}
+
+/** List belt-test envelopes (sent from the site) for the admin view. */
+export async function listBeltTestEnvelopes(env, { days = 365 } = {}) {
+  const from = new Date(Date.now() - days * 864e5).toISOString();
+  const q = new URLSearchParams({ from_date: from, include: 'custom_fields,recipients', order: 'desc', order_by: 'created', count: '100' });
+  q.append('custom_field', `Source=${BELT_TEST_SOURCE}`);
+  const data = await dsFetch(env, `/envelopes?${q}`);
+  return (data.envelopes || []).map((e) => {
+    const fields = {};
+    (e.customFields?.textCustomFields || []).forEach((f) => { fields[f.name] = f.value; });
+    const signer = e.recipients?.signers?.[0] || {};
+    return {
+      envelopeId: e.envelopeId, status: e.status, subject: e.emailSubject,
+      student: fields.Student || signer.name || '', email: signer.email || '',
+      beltTier: fields['Belt tier'] || '', testDate: fields['Test date'] || '',
+      sentDateTime: e.sentDateTime || null, completedDateTime: e.completedDateTime || null,
+    };
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    // If the token was rejected, blow the cache once and retry.
-    if (res.status === 401) {
-      try { await env.IMA_KARATE.delete(TOKEN_KV_KEY); } catch {}
-    }
-    throw new Error(`DocuSign create-envelope failed (${res.status}): ${JSON.stringify(data)}`);
-  }
-  return { envelopeId: data.envelopeId, status: data.status };
+}
+
+/**
+ * Create the belt-test waiver as a reusable DocuSign template (one-time).
+ * After this the waiver wording/layout is managed inside DocuSign; the site
+ * fills the same tab labels by role "Student".
+ */
+export async function createBeltTestTemplate(env) {
+  const body = {
+    name: TEMPLATE_NAME,
+    description: 'Sent automatically by ima.rob-hayes.com after belt-test payment. Tab labels must stay the same for the site to pre-fill them.',
+    shared: 'false',
+    emailSubject: 'IMA Belt Test - Application & Waiver',
+    documents: [{ documentId: '1', name: 'IMA Kyu Belt Test Application and Waiver.pdf', fileExtension: 'pdf', documentBase64: WAIVER_PDF_B64 }],
+    recipients: { signers: [{ recipientId: '1', roleName: SIGNER_ROLE, routingOrder: '1', tabs: anchoredTabs(null, { locked: true }) }] },
+    status: 'created',
+  };
+  const data = await dsFetch(env, '/templates', { method: 'POST', body: JSON.stringify(body) });
+  return { templateId: data.templateId, name: data.name || TEMPLATE_NAME };
+}
+
+/** Find an existing template by name (avoids creating duplicates). */
+export async function findBeltTestTemplate(env) {
+  const data = await dsFetch(env, `/templates?search_text=${encodeURIComponent('IMA Kyu Belt Test')}`);
+  const t = (data.envelopeTemplates || []).find((x) => x.name === TEMPLATE_NAME);
+  return t ? { templateId: t.templateId, name: t.name } : null;
 }
 
 /**

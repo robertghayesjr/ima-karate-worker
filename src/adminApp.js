@@ -106,6 +106,7 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
 .pv-head .row{display:flex;gap:10px;align-items:center}
 #preview-frame{flex:1;border:0;background:#0a0a0b;width:100%}
 .notice{background:rgba(200,16,46,.08);border:1px solid rgba(200,16,46,.3);border-radius:8px;padding:12px 16px;font-size:.82rem;color:#e8a0a8;margin-bottom:16px}
+.ds-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}.ds-table th,.ds-table td{text-align:left;padding:10px 8px;border-bottom:1px solid #222;vertical-align:top}.ds-table a{color:#d4af37}
 </style>
 </head>
 <body>
@@ -418,7 +419,45 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
       '<div class="field full"><label>DocuSign template ID <span style="color:#777">(optional)</span></label><input id="cf-template" value="' + esc(f(c.docusignTemplateId)) + '" /></div>' +
       '</div>' +
       '<div class="save-note" id="cf-note"></div>' +
-      '<div class="doc-actions" style="margin-top:16px"><button class="btn btn-gold" id="cf-save">Save Settings</button></div>';
+      '<div class="doc-actions" style="margin-top:16px"><button class="btn btn-gold" id="cf-save">Save Settings</button></div>' +
+      '<div class="doc-head" style="margin-top:32px"><h2>DocuSign Waivers</h2><span class="badge published">Stored in DocuSign</span></div>' +
+      '<div class="notice">Signed waivers live in DocuSign. Edit the waiver wording in DocuSign under Templates, and find every waiver in DocuSign under Agreements (folder: IMA Belt Tests).</div>' +
+      '<div class="doc-actions"><button class="btn" id="ds-test">Check connection</button><button class="btn" id="ds-template">Set up template in DocuSign</button><button class="btn" id="ds-refresh">Refresh waivers</button></div>' +
+      '<div class="save-note" id="ds-note"></div>' +
+      '<div id="ds-list"></div>';
+
+    var dsNote = function(t){ document.getElementById('ds-note').textContent = t; };
+    document.getElementById('ds-test').addEventListener('click', function(){
+      dsNote('Checking...');
+      api('/admin/api/belt-config/docusign-test', {method:'POST'})
+        .then(function(j){ dsNote(j.ok ? 'Connected to DocuSign.' : ('Not connected: ' + (j.hint || j.error))); })
+        .catch(function(e){ dsNote('Not connected: ' + e.message); });
+    });
+    document.getElementById('ds-template').addEventListener('click', function(){
+      dsNote('Setting up template...');
+      api('/admin/api/docusign/template', {method:'POST'})
+        .then(function(j){
+          beltConfig = Object.assign({}, beltConfig, {docusignTemplateId: j.templateId});
+          document.getElementById('cf-template').value = j.templateId;
+          dsNote((j.created ? 'Template created in DocuSign: ' : 'Using existing DocuSign template: ') + j.name);
+        })
+        .catch(function(e){ dsNote('Template setup failed: ' + e.message); });
+    });
+    var loadWaivers = function(){
+      var box = document.getElementById('ds-list');
+      box.innerHTML = '<div class="help">Loading waivers from DocuSign...</div>';
+      api('/admin/api/docusign/waivers').then(function(j){
+        if (!j.waivers.length) { box.innerHTML = '<div class="help">No belt-test waivers sent yet.</div>'; return; }
+        box.innerHTML = '<table class="ds-table"><thead><tr><th>Student</th><th>Belt</th><th>Test date</th><th>Status</th><th></th></tr></thead><tbody>' +
+          j.waivers.map(function(w){
+            return '<tr><td>' + esc(w.student) + '<div class="help">' + esc(w.email) + '</div></td><td>' + esc(w.beltTier) + '</td><td>' + esc(w.testDate) + '</td>' +
+              '<td><span class="badge ' + (w.status === 'completed' ? 'published' : 'draft') + '">' + esc(w.status) + '</span></td>' +
+              '<td><a href="https://app.docusign.com/documents/details/' + encodeURIComponent(w.envelopeId) + '" target="_blank" rel="noopener">Open in DocuSign</a></td></tr>';
+          }).join('') + '</tbody></table>';
+      }).catch(function(e){ box.innerHTML = '<div class="help">Could not load waivers: ' + esc(e.message) + '</div>'; });
+    };
+    document.getElementById('ds-refresh').addEventListener('click', loadWaivers);
+    loadWaivers();
 
     document.getElementById('cf-save').addEventListener('click', function(){
       var patch = {

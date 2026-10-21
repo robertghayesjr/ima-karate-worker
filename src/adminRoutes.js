@@ -21,7 +21,7 @@ import {
 } from './contentDocs.js';
 import { getBeltConfig, updateBeltConfig } from './beltConfig.js';
 import { buildAdminApp } from './adminApp.js';
-import { testConnection } from './docusign.js';
+import { testConnection, listBeltTestEnvelopes, createBeltTestTemplate, findBeltTestTemplate } from './docusign.js';
 import { buildNewsEventsPage } from './sitePagesWorld.js';
 import { buildClassSchedulePage } from './sitePagesStudent.js';
 
@@ -221,6 +221,20 @@ export async function handleAdminRoutes(request, env, url) {
     // Diagnostic only: exchanges the JWT for an access token. No envelope
     // is created or sent. Safe to run any time.
     return json(await testConnection(env));
+  }
+  // Waiver list, read live from DocuSign (DocuSign is the system of record).
+  if (p === '/admin/api/docusign/waivers' && request.method === 'GET') {
+    try { return json({ ok: true, waivers: await listBeltTestEnvelopes(env) }); }
+    catch (e) { return json({ ok: false, error: e.message }, 502); }
+  }
+  // One-time: put the waiver into DocuSign as a template and use it.
+  if (p === '/admin/api/docusign/template' && request.method === 'POST') {
+    try {
+      const existing = await findBeltTestTemplate(env);
+      const t = existing || await createBeltTestTemplate(env);
+      await updateBeltConfig(env, { docusignTemplateId: t.templateId });
+      return json({ ok: true, created: !existing, ...t });
+    } catch (e) { return json({ ok: false, error: e.message }, 502); }
   }
 
   // ── Attachments ──

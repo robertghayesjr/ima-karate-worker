@@ -19,7 +19,7 @@ import {
 } from './memberstack.js';
 import { buildBeltTestingPage } from './beltTestingPage.js';
 import { buildBeltTestThankYou } from './beltThankYou.js';
-import { sendBeltTestEnvelope, verifyConnectSignature } from './docusign.js';
+import { sendBeltTestEnvelope, verifyConnectSignature, getEnvelopeSummary, BELT_TEST_SOURCE } from './docusign.js';
 import { buildMockStripePage, buildMockDocusignPage } from './beltMockPages.js';
 
 function isDemoMode(env) {
@@ -394,7 +394,7 @@ function buildDocusignPayload(app, member, cfg) {
   // DocuSign template. Update Zap or template if names differ.
   const cf = member?.customFields || {};
   return {
-    templateId: cfg.docusignTemplateId || null,
+    templateId: cfg.docusignTemplateId || null, // set in admin Belt Test tab
     signerEmail: app.email,
     signerName: `${app.firstName || ''} ${app.lastName || ''}`.trim(),
     testDate: cfg.testDate,
@@ -536,43 +536,48 @@ async function apiWebhookSigned(request, env) {
   return json({ ok: true });
 }
 
-// POST /belt-testing/docusign-connect — DocuSign Connect webhook.
-// Configure this URL in DocuSign Admin → Connect → Custom Configuration.
-// Enable "Envelope Signed/Completed" event. Include custom envelope fields.
+// POST /belt-testing/docusign-connect — DocuSign status callback.
+// Each envelope registers this URL itself (eventNotification), so no
+// account-level Connect setup is needed. The payload is never trusted: we
+// re-fetch the envelope from DocuSign with our own credentials and only act
+// on envelopes the site sent (custom field Source = ima-belt-test).
 async function apiDocusignConnect(request, env) {
   const raw = await request.text();
   const sigHeader = request.headers.get('x-docusign-signature-1') || '';
-  const ok = await verifyConnectSignature(env, raw, sigHeader);
-  if (!ok) return json({ error: 'Invalid signature' }, 401);
-
+  if (env.DOCUSIGN_CONNECT_HMAC_KEY && !(await verifyConnectSignature(env, raw, sigHeader))) {
+    return json({ error: 'Invalid signature' }, 401);
+  }
   let body;
   try { body = JSON.parse(raw); } catch { return json({ error: 'Invalid JSON' }, 400); }
+  const envelopeId = String(body?.data?.envelopeId || body?.envelopeId || '');
+  if (!/^[0-9a-f-]{36}$/i.test(envelopeId)) return json({ error: 'missing envelopeId' }, 400);
 
-  // DocuSign Connect JSON schema: { event, data: { envelopeId, envelopeSummary: { status, customFields, ... } } }
-  const envelopeId = body?.data?.envelopeId || body?.envelopeId;
-  const status = body?.data?.envelopeSummary?.status || body?.event || '';
-  if (!envelopeId) return json({ error: 'missing envelopeId' }, 400);
+  let summary;
+  try {
+    summary = await getEnvelopeSummary(env, envelopeId);
+  } catch (e) {
+    console.warn('docusign-connect: verify fetch failed:', e.message);
+    return json({ error: 'verification failed' }, 502); // DocuSign retries
+  }
+  if (summary.fields.Source !== BELT_TEST_SOURCE) return json({ ok: true, ignored: 'not a belt-test envelope' });
 
-  // Look up memberId — first from custom envelope fields, then from KV.
-  let memberId = '';
-  const cf = body?.data?.envelopeSummary?.customFields?.textCustomFields || [];
-  const mf = cf.find((f) => f.name === 'memberId');
-  if (mf?.value) memberId = mf.value;
-
+  let memberId = summary.fields.memberId || '';
   if (!memberId) {
     const stash = await env.IMA_KARATE.get(`envelope:${envelopeId}`);
     if (stash) { try { memberId = JSON.parse(stash).memberId || ''; } catch {} }
   }
+  try {
+    await env.IMA_KARATE.put(`envelope-status:${envelopeId}`, JSON.stringify({
+      memberId, status: summary.status, completedDateTime: summary.completedDateTime, updatedAt: new Date().toISOString(),
+    }), { expirationTtl: 60 * 60 * 24 * 400 });
+  } catch {}
 
-  if (memberId && /completed|signed/i.test(status)) {
-    // Guarded: demo mode never writes to real Memberstack members.
-    if (canWriteMember(env, memberId)) {
-      await recordBeltTestProgress(env, memberId, { signed: true, envelopeId }).catch((e) =>
-        console.warn('mark signed failed:', e.message),
-      );
-    }
+  if (memberId && summary.status === 'completed' && canWriteMember(env, memberId)) {
+    await recordBeltTestProgress(env, memberId, { signed: true, envelopeId }).catch((e) =>
+      console.warn('mark signed failed:', e.message),
+    );
   }
-  return json({ ok: true, memberId, envelopeId, status });
+  return json({ ok: true, envelopeId, status: summary.status });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
