@@ -44,8 +44,13 @@ async function createSession(env, request) {
   return token;
 }
 
+function tokenFromCookie(request) {
+  const m = (request.headers.get('cookie') || '').match(/ima_admin_sess=([0-9a-f]{64})/);
+  return m ? m[1] : '';
+}
+
 async function getSession(env, request) {
-  const token = request.headers.get('x-admin-auth') || '';
+  const token = request.headers.get('x-admin-auth') || tokenFromCookie(request);
   if (!token || !/^[0-9a-f]{64}$/.test(token)) return null;
   const raw = await env.IMA_KARATE.get(`admin:sess:${token}`);
   if (!raw) return null;

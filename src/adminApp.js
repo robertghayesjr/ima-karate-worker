@@ -210,11 +210,13 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
       .then(function(res){
         if (!res.ok) { err.textContent = res.j.error || 'Sign-in failed'; return; }
         TOKEN = res.j.token; localStorage.setItem('ima-admin-token', TOKEN);
+        document.cookie = 'ima_admin_sess=' + TOKEN + '; path=/; max-age=604800; SameSite=Strict';
         showApp(); init();
       })
       .catch(function(){ err.textContent = 'Sign-in failed — try again'; });
   });
   document.getElementById('logout').addEventListener('click', function(){
+    document.cookie = 'ima_admin_sess=; path=/; max-age=0; SameSite=Strict';
     api('/admin/api/logout', {method:'POST'}).catch(function(){}).then(showLogin);
   });
 
