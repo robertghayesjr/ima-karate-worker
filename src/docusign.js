@@ -43,19 +43,45 @@ function b64urlEncodeString(s) {
 
 // ─── PEM → CryptoKey ────────────────────────────────────────────────────────
 
+// Normalise however the key was pasted (dashboard single-line, literal "\\n"
+// escapes, surrounding quotes, CRLF) back into a clean PEM body.
+function normalisePem(pem) {
+  return String(pem || '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/\\r\\n|\\n|\\r/g, '\n');
+}
+
 function pemToArrayBuffer(pem) {
-  // Strip PEM header/footer and whitespace
-  const b64 = pem
+  const b64 = normalisePem(pem)
     .replace(/-----BEGIN [^-]+-----/g, '')
     .replace(/-----END [^-]+-----/g, '')
-    .replace(/\s+/g, '');
-  const bin = atob(b64);
+    .replace(/[^A-Za-z0-9+/=]/g, '')
+    .replace(/=+$/, '');
+  const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+  const bin = atob(padded);
   const buf = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
   return buf.buffer;
 }
 
-async function importRsaPrivateKey(pem) {
+// Non-secret description of the configured key, for diagnostics only.
+export function describeKey(pem) {
+  const n = normalisePem(pem);
+  const header = (n.match(/-----BEGIN ([^-]+)-----/) || [])[1] || 'none';
+  const body = n.replace(/-----(BEGIN|END) [^-]+-----/g, '');
+  const stray = body.replace(/[A-Za-z0-9+/=\s]/g, '');
+  return {
+    present: !!pem,
+    header,
+    hasFooter: /-----END [^-]+-----/.test(n),
+    bodyChars: body.replace(/\s/g, '').length,
+    strayChars: stray.length,
+    looksLikePublicKey: /PUBLIC KEY/.test(header),
+  };
+}
+
+export async function importRsaPrivateKey(pem) {
   // DocuSign gives PKCS#8 keys (BEGIN PRIVATE KEY) *or* PKCS#1 (BEGIN RSA
   // PRIVATE KEY). Cloudflare's SubtleCrypto only accepts PKCS#8. If the PEM
   // header is PKCS#1 we transcode.
@@ -179,7 +205,8 @@ export async function testConnection(env) {
     let hint = 'Token exchange failed.';
     if (/consent/i.test(msg)) hint = 'The sending user has not granted consent to this integration key yet. Visit the consent URL (see docs/belt-testing-setup.md) once while logged in as the sending user.';
     else if (/invalid_grant/i.test(msg)) hint = 'DocuSign rejected the grant — check DOCUSIGN_USER_GUID and that the RSA key matches the integration key.';
-    return { ok: false, error: msg, hint };
+    if (/atob|base64|importKey|pkcs8|DataError/i.test(msg)) hint = 'The RSA private key could not be read. Re-paste the full private key (including the BEGIN/END lines) into DOCUSIGN_RSA_PRIVATE_KEY.';
+    return { ok: false, error: msg, hint, key: describeKey(env.DOCUSIGN_RSA_PRIVATE_KEY) };
   }
 }
 
