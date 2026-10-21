@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { BELT_TIERS } from './beltConfig.js';
+import { defaultSocialsBlock, announceBlock, ANNOUNCE_CSS } from './siteSettings.js';
 
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -60,15 +61,14 @@ export function buildBeltTestingPage(cfg) {
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>${PAGE_CSS}</style>
+  <style>${PAGE_CSS}${ANNOUNCE_CSS}.topbar .socials{display:inline-flex;align-items:center}.topbar .socials a{display:inline-flex}.topbar .socials svg{display:block}</style>
 </head>
 <body>
+  ${announceBlock()}
   <div class="topbar">
     <a href="tel:+13036650339">+1 (303) 665-0339</a>
     <div class="socials">
-      <a href="https://www.facebook.com/imakarate" aria-label="Facebook">f</a>
-      <a href="https://www.instagram.com/imakarate" aria-label="Instagram">ig</a>
-      <a href="https://www.youtube.com/@imakarate" aria-label="YouTube">yt</a>
+      ${defaultSocialsBlock()}
     </div>
     <a href="/how-to-join" class="topbar-cta">CLAIM A FREE TRIAL CLASS</a>
   </div>

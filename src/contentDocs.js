@@ -13,6 +13,8 @@
 //  or publishes directly when invoked with {immediate:true}.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { DEFAULT_SITE_DOC, SOCIAL_ICONS } from './siteSettings.js';
+
 const MAX_REVISIONS = 30;
 
 /** Default docs — mirror the shipped site content. Used when nothing is published yet. */
@@ -79,6 +81,7 @@ export const DEFAULT_DOCS = {
       ] },
     ],
   },
+  site: DEFAULT_SITE_DOC,
 };
 
 export const CONTENT_KEYS = Object.keys(DEFAULT_DOCS);
@@ -145,6 +148,22 @@ export function validateDoc(docKey, doc) {
       for (const c of d.classes) {
         if (!c || !str(c.name, 120) || !str(c.time, 60)) return fail('Each class needs name + time');
       }
+    }
+  }
+  if (docKey === 'site') {
+    if (!Array.isArray(doc.socials)) return fail('site.socials must be an array');
+    if (doc.socials.length > 8) return fail('Too many social links (max 8)');
+    for (const so of doc.socials) {
+      if (!so || !SOCIAL_ICONS[so.platform]) return fail('Each social link needs a platform: ' + Object.keys(SOCIAL_ICONS).join(', '));
+      if (!str(so.url, 300) || !/^https:\/\//i.test(so.url)) return fail('Each social link needs an https:// url');
+    }
+    const a = doc.announcement;
+    if (a !== undefined) {
+      if (!a || typeof a !== 'object') return fail('announcement must be an object');
+      if (typeof a.enabled !== 'boolean') return fail('announcement.enabled must be true or false');
+      if (a.text !== undefined && !str(a.text, 200)) return fail('announcement.text max 200 chars');
+      if (a.href && (!str(a.href, 300) || !/^(https:\/\/|\/)/i.test(a.href))) return fail('announcement.href must be https:// or site-relative');
+      if (a.enabled && !a.text) return fail('announcement needs text when enabled');
     }
   }
   return { ok: true };

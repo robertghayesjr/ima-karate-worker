@@ -25,6 +25,8 @@
 import { handleBeltTestingRoutes } from './beltRoutes.js';
 import { handleSiteRoutes } from './siteRoutes.js';
 import { handleAdminRoutes } from './adminRoutes.js';
+import { applySiteSettings } from './siteSettings.js';
+import { getPublishedDoc } from './contentDocs.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -56,7 +58,7 @@ export default {
 
     // ── Rebuilt site pages (new theme, served directly by the Worker) ────────
     const siteRes = await handleSiteRoutes(request, env, url);
-    if (siteRes) return siteRes;
+    if (siteRes) return withSiteSettings(siteRes, env);
 
     // ── Belt-testing flow (page + JSON API + admin route) ───────────────────
     if (url.pathname === '/belt-testing' ||
@@ -64,7 +66,7 @@ export default {
         url.pathname === '/__admin/belt-testing') {
       try {
         const res = await handleBeltTestingRoutes(request, env, url);
-        if (res) return res;
+        if (res) return withSiteSettings(res, env);
       } catch (e) {
         console.error('belt-testing route error', e);
         return json({ error: e.message || 'Belt-testing route failed' }, 500);
@@ -94,6 +96,22 @@ export default {
     return proxyAndRewrite(request, env);
   },
 };
+
+// Apply the published "site" doc (social links, announcement bar) to Worker-
+// rendered HTML. Any failure leaves the page's built-in defaults in place.
+async function withSiteSettings(res, env) {
+  const type = res.headers.get('Content-Type') || '';
+  if (!type.includes('text/html') || res.status !== 200) return res;
+  const html = await res.text();
+  if (!html.includes('<!--ima:')) return new Response(html, res);
+  let out = html;
+  try {
+    out = applySiteSettings(html, await getPublishedDoc(env, 'site'));
+  } catch (e) {
+    console.warn('site settings not applied:', e.message);
+  }
+  return new Response(out, res);
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  PROXY + HTMLRewriter

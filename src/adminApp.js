@@ -155,6 +155,7 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
       <div class="tabs">
         <button data-tab="news" class="on">News</button>
         <button data-tab="schedule">Schedule</button>
+        <button data-tab="site">Site</button>
         <button data-tab="belt">Belt Test</button>
       </div>
       <div class="tab-body" id="tab-body"></div>
@@ -272,6 +273,10 @@ input:focus,textarea:focus,select:focus{border-color:#c8102e;box-shadow:0 0 0 3p
             addMsg('sys', '✎ Draft saved for “' + ev.key + '”' + (ev.note ? ' — ' + ev.note : '') + '. Preview it in the panel on the right, then press Publish.');
             loadDoc(ev.key);
           }
+          if (ev.type === 'change_requested') {
+            addMsg('sys', '\u2709 Change request logged: \u201c' + ev.summary + '\u201d. Track it in the Site tab under Requests.');
+            if (currentTab === 'site') loadRequests();
+          }
         });
       })
       .catch(function(e){ addMsg('sys', 'Error: ' + e.message); chatHistory.pop(); })
@@ -345,7 +350,7 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
     var k = currentTab; // 'news' | 'schedule'
     var st = docState[k] || {};
     var hasDraft = !!st.draft;
-    var label = k === 'news' ? 'News & Events' : 'Class Schedule';
+    var label = (k === 'news' ? 'News & Events' : k === 'schedule' ? 'Class Schedule' : 'Site Settings');
     body.innerHTML =
       '<div class="doc-head"><h2>' + label + '</h2>' +
       '<span class="badge ' + (hasDraft ? 'draft' : 'published') + '">' + (hasDraft ? 'Draft ready' : 'Published') + '</span></div>' +
@@ -361,7 +366,9 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
               '<button data-rev="' + r.revId + '">Restore</button></div>';
           }).join('')
         : '<div class="rev-item"><span>No revisions yet — the current live version is the original.</span></div>') +
-      '</div>';
+      '</div>' +
+      (k === 'site' ? siteSummaryHtml(st.draft || st.published) + '<div class="rev-list"><h3>Requests</h3><div class="help">Changes Claude can\u2019t make itself (layout, design, new sections) are logged here for the site developer.</div><div id="req-list"></div></div>' : '');
+    if (k === 'site') loadRequests();
 
     document.getElementById('btn-preview').addEventListener('click', function(){ openPreview(k); });
     var pub = document.getElementById('btn-publish');
@@ -384,9 +391,35 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
     });
   }
 
+  function siteSummaryHtml(d){
+    if (!d) return '';
+    var socials = (d.socials || []).map(function(x){ return '<div class="rev-item"><span>' + esc(x.platform) + '</span><span class="help">' + esc(x.url) + '</span></div>'; }).join('');
+    var a = d.announcement || {};
+    return '<div class="rev-list"><h3>Social links</h3>' + (socials || '<div class="rev-item"><span>None</span></div>') + '</div>' +
+      '<div class="rev-list"><h3>Announcement bar</h3><div class="rev-item"><span>' + (a.enabled ? esc(a.text) : 'Off') + '</span>' + (a.enabled && a.href ? '<span class="help">' + esc(a.href) + '</span>' : '') + '</div></div>';
+  }
+  function loadRequests(){
+    var box = document.getElementById('req-list');
+    if (!box) return;
+    api('/admin/api/requests').then(function(j){
+      if (!j.requests.length) { box.innerHTML = '<div class="rev-item"><span>No requests yet.</span></div>'; return; }
+      box.innerHTML = j.requests.map(function(r){
+        return '<div class="rev-item" style="display:block"><div><strong>' + esc(r.summary) + '</strong> <span class="badge ' + (r.status === 'open' ? 'draft' : 'published') + '">' + esc(r.status) + '</span></div>' +
+          '<div class="help" style="white-space:pre-wrap">' + esc(r.details) + '</div>' +
+          '<div class="help">' + new Date(r.createdAt).toLocaleString() + '</div>' +
+          (r.status === 'open' ? '<button data-req="' + esc(r.id) + '" data-st="done">Mark done</button> <button data-req="' + esc(r.id) + '" data-st="dismissed">Dismiss</button>' : '') + '</div>';
+      }).join('');
+      box.querySelectorAll('button[data-req]').forEach(function(b){
+        b.addEventListener('click', function(){
+          api('/admin/api/requests/' + b.dataset.req, {method:'PATCH', body: JSON.stringify({status: b.dataset.st})}).then(loadRequests).catch(function(e){ alert(e.message); });
+        });
+      });
+    }).catch(function(e){ box.innerHTML = '<div class="help">Could not load requests: ' + esc(e.message) + '</div>'; });
+  }
+
   function openPreview(k){
     var modal = document.getElementById('preview-modal');
-    document.getElementById('pv-title').textContent = 'Preview — ' + (k === 'news' ? 'News & Events' : 'Class Schedule');
+    document.getElementById('pv-title').textContent = 'Preview — ' + (k === 'news' ? 'News & Events' : k === 'schedule' ? 'Class Schedule' : 'Site Settings');
     document.getElementById('pv-publish').style.display = (docState[k] && docState[k].draft) ? '' : 'none';
     document.getElementById('preview-frame').src = '/admin/api/preview/' + k;
     modal.classList.add('open');
@@ -494,7 +527,7 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
       } else {
         addMsg('bot', 'Hi! I can help you update the website — news, announcements, and the class schedule. Try: “Add a news item about the upcoming tournament.” Attach a photo and tell me where it should go.');
       }
-      return Promise.all(['news','schedule'].map(loadDoc));
+      return Promise.all(['news','schedule','site'].map(loadDoc));
     }).then(function(){ renderTab(); }).catch(function(e){ addMsg('sys', 'Could not load admin state: ' + e.message); });
   }
 

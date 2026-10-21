@@ -21,6 +21,8 @@ import {
 } from './contentDocs.js';
 import { getBeltConfig, updateBeltConfig } from './beltConfig.js';
 import { buildAdminApp } from './adminApp.js';
+import { applySiteSettings, SOCIAL_ICONS } from './siteSettings.js';
+import { buildHomePage } from './sitePagesMain.js';
 import { testConnection, listBeltTestEnvelopes, createBeltTestTemplate, findBeltTestTemplate } from './docusign.js';
 import { buildNewsEventsPage } from './sitePagesWorld.js';
 import { buildClassSchedulePage } from './sitePagesStudent.js';
@@ -146,7 +148,7 @@ export async function handleAdminRoutes(request, env, url) {
   }
 
   // Doc read (published + draft + revisions)
-  let m = p.match(/^\/admin\/api\/doc\/(news|schedule)$/);
+  let m = p.match(/^\/admin\/api\/doc\/(news|schedule|site)$/);
   if (m && request.method === 'GET') {
     const k = m[1];
     const [published, draft, revisions] = await Promise.all([
@@ -156,7 +158,7 @@ export async function handleAdminRoutes(request, env, url) {
   }
 
   // Save draft (Claude posts here too — same validation)
-  m = p.match(/^\/admin\/api\/doc\/(news|schedule)\/draft$/);
+  m = p.match(/^\/admin\/api\/doc\/(news|schedule|site)\/draft$/);
   if (m && request.method === 'PUT') {
     const body = await request.json().catch(() => null);
     if (!body?.doc) return json({ error: 'Missing doc' }, 400);
@@ -166,14 +168,14 @@ export async function handleAdminRoutes(request, env, url) {
   }
 
   // Discard draft
-  m = p.match(/^\/admin\/api\/doc\/(news|schedule)\/discard$/);
+  m = p.match(/^\/admin\/api\/doc\/(news|schedule|site)\/discard$/);
   if (m && request.method === 'POST') {
     await discardDraft(env, m[1]);
     return json({ ok: true });
   }
 
   // Publish draft
-  m = p.match(/^\/admin\/api\/doc\/(news|schedule)\/publish$/);
+  m = p.match(/^\/admin\/api\/doc\/(news|schedule|site)\/publish$/);
   if (m && request.method === 'POST') {
     const r = await publishDraft(env, m[1], 'admin');
     if (!r.ok) return json({ error: r.error }, 400);
@@ -181,7 +183,7 @@ export async function handleAdminRoutes(request, env, url) {
   }
 
   // Restore a revision → new draft
-  m = p.match(/^\/admin\/api\/doc\/(news|schedule)\/restore\/([a-z0-9]+)$/);
+  m = p.match(/^\/admin\/api\/doc\/(news|schedule|site)\/restore\/([a-z0-9]+)$/);
   if (m && request.method === 'POST') {
     const r = await restoreRevision(env, m[1], m[2], 'admin');
     if (!r.ok) return json({ error: r.error }, 400);
@@ -189,7 +191,7 @@ export async function handleAdminRoutes(request, env, url) {
   }
 
   // Preview a doc on the real page render (draft by default, or a revision)
-  m = p.match(/^\/admin\/api\/preview\/(news|schedule)$/);
+  m = p.match(/^\/admin\/api\/preview\/(news|schedule|site)$/);
   if (m && request.method === 'GET') {
     const k = m[1];
     let doc = await getDraftDoc(env, k) || await getPublishedDoc(env, k);
@@ -201,10 +203,23 @@ export async function handleAdminRoutes(request, env, url) {
     }
     const html = k === 'news'
       ? await buildNewsEventsPage(env, doc)
-      : await buildClassSchedulePage(env, doc);
+      : k === 'schedule'
+        ? await buildClassSchedulePage(env, doc)
+        : applySiteSettings(await buildHomePage(env), doc);
     return new Response(html, {
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
     });
+  }
+
+  // Change requests (things Claude can't edit via content docs)
+  if (p === '/admin/api/requests' && request.method === 'GET') {
+    return json({ requests: await listChangeRequests(env) });
+  }
+  m = p.match(/^\/admin\/api\/requests\/([a-z0-9]+)$/);
+  if (m && request.method === 'PATCH') {
+    const body = await request.json().catch(() => ({}));
+    const r = await setChangeRequestStatus(env, m[1], body.status);
+    return r.ok ? json({ ok: true }) : json({ error: r.error }, 400);
   }
 
   // Belt config (test dates, fees, location) — replaces the old token-based admin API for humans
@@ -311,10 +326,18 @@ What you can edit — "content documents" stored as JSON:
 2. "schedule" — the weekly class schedule.
    Schema: { "days": [ { "day": "MON", "classes": [ { "name": string, "time": string } ] } ] }
 
-3. Belt-test settings (dates, fees, location) — you cannot edit these directly; if asked, tell the user to open the "Belt Test Settings" tab in the admin panel.
+3. "site" — site-wide settings shown on every page: the social media icons in the top bar and an optional announcement bar across the top.
+   Schema: { "socials": [ { "platform": "facebook"|"instagram"|"youtube"|"tiktok"|"x", "url": "https://..." } ], "announcement": { "enabled": boolean, "text": string, "href": string } }
+   - The icons are real brand icons drawn by the site; you only choose which platforms appear, their order, and their URLs.
+   - "href" is optional (https:// or a site path like "/belt-testing").
+
+4. Belt-test settings (dates, fees, location) — you cannot edit these directly; tell the user to open the "Belt Test" tab in the admin panel.
+
+Anything else (page layout, design, colors, fonts, new pages or sections, navigation, wording on pages other than the docs above): you cannot change it directly. Do NOT tell the user to edit templates, code, or theme files — they don't have access. Instead, call request_change with a clear summary and details; it goes to the site developer, and the user can track it in the "Requests" list of the Site tab. Then tell the user it was logged.
 
 Tools:
-- get_doc(key): read the current published doc (and any draft) for "news" or "schedule".
+- get_doc(key): read the current published doc (and any draft) for "news", "schedule" or "site".
+- request_change(summary, details): log a change you can't make yourself for the site developer.
 - save_draft(key, doc): save a proposed change as a DRAFT. The user reviews it in a preview before publishing. Never claim a change is live — only "draft saved, ready to preview".
 
 Rules:
@@ -374,7 +397,7 @@ async function handleChat(request, env) {
   const tools = [
     {
       name: 'get_doc',
-      description: 'Read the current published content doc (and any pending draft) for "news" or "schedule".',
+      description: 'Read the current published content doc (and any pending draft) for "news", "schedule" or "site".',
       input_schema: {
         type: 'object', properties: { key: { type: 'string', enum: CONTENT_KEYS } }, required: ['key'],
       },
@@ -390,6 +413,18 @@ async function handleChat(request, env) {
           note: { type: 'string', description: 'One-line summary of the change for the user' },
         },
         required: ['key', 'doc'],
+      },
+    },
+    {
+      name: 'request_change',
+      description: 'Log a website change you cannot make with the content docs (layout, design, new sections, page wording) for the site developer.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          summary: { type: 'string', description: 'Short title, e.g. "Add a testimonials section to the home page"' },
+          details: { type: 'string', description: 'Everything the developer needs: page, what to change, wording, links, attachment names' },
+        },
+        required: ['summary', 'details'],
       },
     },
   ];
@@ -450,6 +485,10 @@ async function handleChat(request, env) {
               result = r.ok ? { ok: true, message: 'Draft saved — the user must preview and publish it.' } : { error: r.error };
               if (r.ok) toolEvents.push({ type: 'draft_saved', key: k, note });
             }
+          } else if (block.name === 'request_change') {
+            const r = await addChangeRequest(env, block.input?.summary, block.input?.details, attachmentIds);
+            result = r.ok ? { ok: true, message: 'Logged for the site developer. The user can see it under Site > Requests.' } : { error: r.error };
+            if (r.ok) toolEvents.push({ type: 'change_requested', summary: r.request.summary });
           } else {
             result = { error: 'Unknown tool' };
           }
@@ -474,4 +513,34 @@ async function handleChat(request, env) {
     console.error('chat error', e);
     return json({ error: e.message || 'Chat failed' }, 500);
   }
+}
+
+// ── Change requests (KV list, newest first, max 100) ────────────────────────
+const REQ_KEY = 'admin:change-requests';
+async function listChangeRequests(env) {
+  try { return JSON.parse((await env.IMA_KARATE.get(REQ_KEY)) || '[]'); } catch { return []; }
+}
+async function addChangeRequest(env, summary, details, attachmentIds = []) {
+  summary = String(summary || '').trim().slice(0, 200);
+  details = String(details || '').trim().slice(0, 4000);
+  if (!summary) return { ok: false, error: 'summary required' };
+  const list = await listChangeRequests(env);
+  const request = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    summary, details, status: 'open',
+    attachments: (attachmentIds || []).filter((a) => /^[a-z0-9-]+$/.test(a)).slice(0, 10),
+    createdAt: new Date().toISOString(),
+  };
+  list.unshift(request);
+  await env.IMA_KARATE.put(REQ_KEY, JSON.stringify(list.slice(0, 100)));
+  return { ok: true, request };
+}
+async function setChangeRequestStatus(env, id, status) {
+  if (!['open', 'done', 'dismissed'].includes(status)) return { ok: false, error: 'status must be open, done or dismissed' };
+  const list = await listChangeRequests(env);
+  const r = list.find((x) => x.id === id);
+  if (!r) return { ok: false, error: 'not found' };
+  r.status = status; r.updatedAt = new Date().toISOString();
+  await env.IMA_KARATE.put(REQ_KEY, JSON.stringify(list));
+  return { ok: true };
 }

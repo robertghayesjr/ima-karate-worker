@@ -1,3 +1,4 @@
+import { defaultSocialsBlock, announceBlock, ANNOUNCE_CSS } from './siteSettings.js';
 // ─────────────────────────────────────────────────────────────────────────────
 //  Site theme — shared design system for all rebuilt IMA pages.
 //
@@ -87,6 +88,7 @@ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/sv
 .topbar-phone{font-weight:600;color:#f4f4f5}
 .socials{display:flex;gap:6px}
 .socials a{width:26px;height:26px;border:1px solid #2a2a2e;border-radius:50%;display:grid;place-items:center;font-size:.62rem;font-weight:700;transition:border-color .2s,background .2s,transform .2s}
+.socials a svg{display:block}
 .socials a:hover{border-color:#d4a24a;background:#131313;transform:translateY(-2px)}
 .topbar-cta{background:linear-gradient(135deg,#c8102e,#9e0c23);color:#fff;padding:5px 12px;font-weight:600;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;border-radius:2px;transition:filter .2s,transform .2s}
 .topbar-cta:hover{filter:brightness(1.2);color:#fff;transform:translateY(-1px)}
@@ -611,12 +613,11 @@ function siteHeader(activeKey) {
   }).join('');
 
   return `
+  ${announceBlock()}
   <div class="topbar">
     <a href="tel:+13036650339" class="topbar-phone">+1 (303) 665-0339</a>
     <div class="socials topbar-mid">
-      <a href="https://www.facebook.com/imakarate" aria-label="Facebook">f</a>
-      <a href="https://www.instagram.com/imakarate" aria-label="Instagram">ig</a>
-      <a href="https://www.youtube.com/@imakarate" aria-label="YouTube">yt</a>
+      ${defaultSocialsBlock()}
     </div>
     <a href="/how-to-join" class="topbar-cta">Claim a Free Trial Class</a>
   </div>
@@ -711,7 +712,7 @@ function pageShell({ title, description, activeNav = '', bodyClass = '', content
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>${SITE_CSS}</style>
+  <style>${SITE_CSS}${ANNOUNCE_CSS}</style>
 </head>
 <body class="${bodyClass}">
   ${siteHeader(activeNav)}

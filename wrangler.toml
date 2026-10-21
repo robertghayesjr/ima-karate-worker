@@ -22,7 +22,7 @@ DEMO_MODE = "1"
 
 # DocuSign non-secret identifiers (secrets: INTEGRATION_KEY, RSA_PRIVATE_KEY)
 DOCUSIGN_ACCOUNT_ID = "6b65537a-a0f5-4bd6-802d-1daa34fe38d8"
-DOCUSIGN_USER_GUID  = "c6f0b2cf-285d-4bd9-8f9f-0cd033badd4b"
+DOCUSIGN_USER_GUID  = "1aaed13b-ecb0-4cb0-81b9-1f179a64ae8b"
 DOCUSIGN_BASE_URI   = "https://na4.docusign.net"
 
 # Memberstack — five one-time plan IDs, one per belt tier. Set these in the
