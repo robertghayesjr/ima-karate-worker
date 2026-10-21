@@ -64,4 +64,36 @@ st = await ds.connectionStatus(env);
 ok(st.connected && /expired/.test(st.lastError), 'keep-alive failure recorded for admin');
 await ds.disconnectOAuth(env);
 ok(!(await ds.connectionStatus(env)).connected, 'disconnect clears connection');
+// ── sandbox + Go-Live calls ──
+const envCalls = [];
+const prevFetch = globalThis.fetch;
+globalThis.fetch = async (url, init = {}) => {
+  const u = new URL(url);
+  if (u.host === 'demo.docusign.net') {
+    envCalls.push({ m: init.method || 'GET', path: u.pathname, body: init.body ? JSON.parse(init.body) : null });
+    const r = (o, s = 200) => new Response(JSON.stringify(o), { status: s });
+    if (u.pathname.endsWith('/templates') && (init.method || 'GET') === 'GET') return r({ envelopeTemplates: [] });
+    if (u.pathname.endsWith('/templates')) return r({ templateId: 'tpl-sb', name: ds.TEMPLATE_NAME }, 201);
+    if (u.pathname.endsWith('/envelopes')) return r({ envelopeId: crypto.randomUUID(), status: 'created' }, 201);
+    if (u.pathname.endsWith('/folders/recyclebin')) return r({});
+  }
+  if (u.pathname === '/oauth/userinfo' && u.host === 'account-d.docusign.com') return new Response(JSON.stringify({ sub: 'u', name: 'Rob Dev', email: 'dev@x.com', accounts: [{ account_id: 'sb-acct', is_default: true, base_uri: 'https://demo.docusign.net', account_name: 'Dev' }] }));
+  return prevFetch(url, init);
+};
+failRefresh = false;
+let threw = false; try { await ds.runGoLiveCalls(env); } catch { threw = true; }
+ok(threw, 'go-live calls refused unless connected to sandbox');
+const sbUrl = new URL(await ds.startOAuth(env, { sandbox: true }));
+ok(sbUrl.host === 'account-d.docusign.com', 'sandbox: sign-in goes to account-d');
+globalThis.__challenge = sbUrl.searchParams.get('code_challenge');
+await cb(`code=good-code&state=${sbUrl.searchParams.get('state')}`);
+const sbRec = JSON.parse(kv.get('docusign:oauth'));
+ok(sbRec.sandbox && sbRec.host === 'account-d.docusign.com' && sbRec.baseUri === 'https://demo.docusign.net', 'sandbox: record points at demo environment');
+ok(calls.filter((c) => c.url.startsWith('https://account-d.docusign.com/oauth/token')).length >= 1, 'sandbox: token exchange on account-d');
+const gl = await ds.runGoLiveCalls(env);
+const posts = envCalls.filter((c) => c.m === 'POST' && c.path.endsWith('/envelopes'));
+ok(gl.ok && posts.length === 20 && posts.every((c) => c.body.status === 'created' && !c.body.eventNotification), 'go-live: 20 draft envelopes, nothing emailed');
+ok(posts.filter((c) => c.body.templateId === 'tpl-sb').length === 10 && posts.filter((c) => c.body.documents).length === 10, 'go-live: exercises template + PDF paths');
+ok(envCalls.every((c) => c.path.includes('/accounts/sb-acct/')) && envCalls.some((c) => c.path.endsWith('/folders/recyclebin')), 'go-live: uses sandbox account + cleans up drafts');
+ok(envCalls.filter((c) => c.m === 'GET' && /envelopes\//.test(c.path)).length === 0, 'go-live: no repeated envelope reads (polling rule)');
 console.log('\n' + fails + ' failures'); process.exit(fails ? 1 : 0);

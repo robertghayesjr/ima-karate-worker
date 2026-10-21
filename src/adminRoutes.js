@@ -23,7 +23,7 @@ import { getBeltConfig, updateBeltConfig } from './beltConfig.js';
 import { buildAdminApp } from './adminApp.js';
 import { applySiteSettings, SOCIAL_ICONS } from './siteSettings.js';
 import { buildHomePage } from './sitePagesMain.js';
-import { testConnection, listBeltTestEnvelopes, createBeltTestTemplate, findBeltTestTemplate, startOAuth, finishOAuth, connectionStatus, disconnectOAuth } from './docusign.js';
+import { testConnection, listBeltTestEnvelopes, createBeltTestTemplate, findBeltTestTemplate, startOAuth, finishOAuth, connectionStatus, disconnectOAuth, runGoLiveCalls } from './docusign.js';
 import { buildNewsEventsPage } from './sitePagesWorld.js';
 import { buildClassSchedulePage } from './sitePagesStudent.js';
 
@@ -259,7 +259,12 @@ export async function handleAdminRoutes(request, env, url) {
     return json(await testConnection(env));
   }
   if (p === '/admin/api/docusign/connect' && request.method === 'POST') {
-    try { return json({ ok: true, url: await startOAuth(env) }); }
+    const body = await request.json().catch(() => ({}));
+    try { return json({ ok: true, url: await startOAuth(env, { sandbox: body?.sandbox === true }) }); }
+    catch (e) { return json({ ok: false, error: e.message }, 400); }
+  }
+  if (p === '/admin/api/docusign/golive-calls' && request.method === 'POST') {
+    try { return json(await runGoLiveCalls(env, 20)); }
     catch (e) { return json({ ok: false, error: e.message }, 400); }
   }
   if (p === '/admin/api/docusign/status' && request.method === 'GET') {

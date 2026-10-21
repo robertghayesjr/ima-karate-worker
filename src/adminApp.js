@@ -456,7 +456,7 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
       '<div class="doc-head" style="margin-top:32px"><h2>DocuSign Waivers</h2><span class="badge published">Stored in DocuSign</span></div>' +
       '<div class="notice">Signed waivers live in DocuSign. Edit the waiver wording in DocuSign under Templates, and find every waiver in DocuSign under Agreements (folder: IMA Belt Tests).</div>' +
       '<div class="rev-item" id="ds-status"><span>Checking DocuSign connection...</span></div>' +
-      '<div class="doc-actions"><button class="btn btn-gold" id="ds-connect">Connect DocuSign</button><button class="btn btn-ghost" id="ds-disconnect" style="display:none">Disconnect</button><button class="btn" id="ds-test">Check connection</button><button class="btn" id="ds-template">Set up template in DocuSign</button><button class="btn" id="ds-refresh">Refresh waivers</button></div>' +
+      '<div class="doc-actions"><button class="btn btn-gold" id="ds-connect">Connect DocuSign</button><button class="btn" id="ds-sandbox">Connect sandbox</button><button class="btn" id="ds-golive" style="display:none">Run Go-Live test calls</button><button class="btn btn-ghost" id="ds-disconnect" style="display:none">Disconnect</button><button class="btn" id="ds-test">Check connection</button><button class="btn" id="ds-template">Set up template in DocuSign</button><button class="btn" id="ds-refresh">Refresh waivers</button></div>' +
       '<div class="save-note" id="ds-note"></div>' +
       '<div id="ds-list"></div>';
 
@@ -466,10 +466,11 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
         var el = document.getElementById('ds-status');
         if (!el) return;
         el.innerHTML = st.connected
-          ? '<span><span class="badge published">Connected</span> ' + esc(st.userName || st.email) + (st.accountName ? ' &middot; ' + esc(st.accountName) : '') + '</span><span class="help">since ' + new Date(st.connectedAt).toLocaleDateString() + (st.lastError ? ' &middot; last refresh failed, reconnect' : '') + '</span>'
+          ? '<span><span class="badge ' + (st.sandbox ? 'draft' : 'published') + '">' + (st.sandbox ? 'Connected: sandbox' : 'Connected: live') + '</span> ' + esc(st.userName || st.email) + (st.accountName ? ' &middot; ' + esc(st.accountName) : '') + '</span><span class="help">since ' + new Date(st.connectedAt).toLocaleDateString() + (st.lastError ? ' &middot; last refresh failed, reconnect' : '') + '</span>'
           : '<span><span class="badge draft">Not connected</span> Click Connect DocuSign and sign in once with the DocuSign account that should send waivers.</span>';
         document.getElementById('ds-connect').textContent = st.connected ? 'Reconnect' : 'Connect DocuSign';
         document.getElementById('ds-disconnect').style.display = st.connected ? '' : 'none';
+        document.getElementById('ds-golive').style.display = (st.connected && st.sandbox) ? '' : 'none';
       }).catch(function(e){ dsNote('Could not read DocuSign status: ' + e.message); });
     };
     loadDsStatus();
@@ -478,6 +479,18 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
       api('/admin/api/docusign/connect', {method:'POST'})
         .then(function(j){ window.location.href = j.url; })
         .catch(function(e){ dsNote('Could not start sign-in: ' + e.message); });
+    });
+    document.getElementById('ds-sandbox').addEventListener('click', function(){
+      dsNote('Opening DocuSign sandbox sign-in...');
+      api('/admin/api/docusign/connect', {method:'POST', body: JSON.stringify({sandbox: true})})
+        .then(function(j){ window.location.href = j.url; })
+        .catch(function(e){ dsNote('Could not start sign-in: ' + e.message); });
+    });
+    document.getElementById('ds-golive').addEventListener('click', function(){
+      dsNote('Running Go-Live test calls (draft envelopes, nothing is emailed)...');
+      api('/admin/api/docusign/golive-calls', {method:'POST'})
+        .then(function(j){ dsNote(j.ok ? ('Done: ' + j.calls + ' successful calls. In the DocuSign developer Apps and Keys page, choose Actions, then Start Go-Live.') : ('Some calls failed: ' + (j.errors || []).slice(0, 2).join(' / '))); })
+        .catch(function(e){ dsNote('Go-Live calls failed: ' + e.message); });
     });
     document.getElementById('ds-disconnect').addEventListener('click', function(){
       if (!confirm('Disconnect DocuSign? Waivers will stop sending until you connect again.')) return;

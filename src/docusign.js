@@ -194,7 +194,7 @@ async function getOAuthRecord(env) {
 }
 function randomB64url(n) { return b64urlEncode(crypto.getRandomValues(new Uint8Array(n)).buffer); }
 
-async function tokenRequest(env, params) {
+async function tokenRequest(env, params, host = oauthHost(env)) {
   const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
   const body = new URLSearchParams(params);
   if (env.DOCUSIGN_SECRET_KEY) {
@@ -202,19 +202,21 @@ async function tokenRequest(env, params) {
   } else {
     body.set('client_id', env.DOCUSIGN_INTEGRATION_KEY);
   }
-  const res = await fetch(`https://${oauthHost(env)}/oauth/token`, { method: 'POST', headers, body: body.toString() });
+  const res = await fetch(`https://${host}/oauth/token`, { method: 'POST', headers, body: body.toString() });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`DocuSign sign-in failed (${res.status}): ${data.error || ''} ${data.error_description || ''}`.trim());
   return data;
 }
 
 /** Step 1: build the DocuSign sign-in URL (state + PKCE stored for 10 min). */
-export async function startOAuth(env) {
+export const SANDBOX_HOST = 'account-d.docusign.com';
+export async function startOAuth(env, { sandbox = false } = {}) {
   if (!env.DOCUSIGN_INTEGRATION_KEY) throw new Error('DOCUSIGN_INTEGRATION_KEY is not set');
+  const host = sandbox ? SANDBOX_HOST : oauthHost(env);
   const state = randomB64url(24);
   const verifier = randomB64url(48);
   const challenge = b64urlEncode(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
-  await env.IMA_KARATE.put(OAUTH_STATE_PREFIX + state, verifier, { expirationTtl: 600 });
+  await env.IMA_KARATE.put(OAUTH_STATE_PREFIX + state, JSON.stringify({ verifier, host }), { expirationTtl: 600 });
   const q = new URLSearchParams({
     response_type: 'code',
     scope: 'signature extended',
@@ -224,24 +226,27 @@ export async function startOAuth(env) {
     code_challenge: challenge,
     code_challenge_method: 'S256',
   });
-  return `https://${oauthHost(env)}/oauth/auth?${q}`;
+  return `https://${host}/oauth/auth?${q}`;
 }
 
 /** Step 2: DocuSign redirects back with ?code&state — exchange + store. */
 export async function finishOAuth(env, code, state) {
   if (!code || !state || !/^[A-Za-z0-9_-]{20,64}$/.test(state)) throw new Error('Missing or invalid sign-in response');
-  const verifier = await env.IMA_KARATE.get(OAUTH_STATE_PREFIX + state);
+  const stashed = await env.IMA_KARATE.get(OAUTH_STATE_PREFIX + state);
+  let verifier = stashed, host = oauthHost(env);
+  try { const j = JSON.parse(stashed); verifier = j.verifier; host = j.host || host; } catch {}
+  if (!host.endsWith('.docusign.com')) host = oauthHost(env);
   if (!verifier) throw new Error('This sign-in link expired. Go back to the admin and click Connect DocuSign again.');
   await env.IMA_KARATE.delete(OAUTH_STATE_PREFIX + state);
-  const tok = await tokenRequest(env, { grant_type: 'authorization_code', code, code_verifier: verifier });
+  const tok = await tokenRequest(env, { grant_type: 'authorization_code', code, code_verifier: verifier }, host);
   if (!tok.refresh_token) throw new Error('DocuSign did not return a refresh token');
-  const uiRes = await fetch(`https://${oauthHost(env)}/oauth/userinfo`, { headers: { Authorization: `Bearer ${tok.access_token}` } });
+  const uiRes = await fetch(`https://${host}/oauth/userinfo`, { headers: { Authorization: `Bearer ${tok.access_token}` } });
   const ui = await uiRes.json().catch(() => ({}));
   const accounts = ui.accounts || [];
   const acct = accounts.find((a) => a.account_id === env.DOCUSIGN_ACCOUNT_ID) || accounts.find((a) => a.is_default) || accounts[0];
   if (!acct) throw new Error('No DocuSign account found for this login');
   const record = {
-    refreshToken: tok.refresh_token,
+    refreshToken: tok.refresh_token, host, sandbox: host === SANDBOX_HOST,
     accountId: acct.account_id, baseUri: acct.base_uri, accountName: acct.account_name || '',
     userName: ui.name || '', email: ui.email || '', userId: ui.sub || '',
     connectedAt: new Date().toISOString(), refreshedAt: new Date().toISOString(),
@@ -252,7 +257,7 @@ export async function finishOAuth(env, code, state) {
 }
 
 async function refreshOAuth(env, record) {
-  const tok = await tokenRequest(env, { grant_type: 'refresh_token', refresh_token: record.refreshToken });
+  const tok = await tokenRequest(env, { grant_type: 'refresh_token', refresh_token: record.refreshToken }, record.host || oauthHost(env));
   const updated = { ...record, refreshToken: tok.refresh_token || record.refreshToken, refreshedAt: new Date().toISOString(), lastError: undefined };
   await env.IMA_KARATE.put(OAUTH_KV_KEY, JSON.stringify(updated));
   await env.IMA_KARATE.put(TOKEN_KV_KEY, tok.access_token, { expirationTtl: Math.max(300, (tok.expires_in || 28800) - 600) });
@@ -267,7 +272,7 @@ export async function disconnectOAuth(env) {
 /** Connection status for the admin (no secrets). */
 export async function connectionStatus(env) {
   const r = await getOAuthRecord(env);
-  if (r) return { mode: 'signin', connected: true, userName: r.userName, email: r.email, accountName: r.accountName, connectedAt: r.connectedAt, refreshedAt: r.refreshedAt, lastError: r.lastError || null, redirectUri: oauthRedirectUri(env) };
+  if (r) return { mode: 'signin', connected: true, sandbox: !!r.sandbox, userName: r.userName, email: r.email, accountName: r.accountName, connectedAt: r.connectedAt, refreshedAt: r.refreshedAt, lastError: r.lastError || null, redirectUri: oauthRedirectUri(env) };
   const k = describeKey(env.DOCUSIGN_RSA_PRIVATE_KEY);
   return { mode: k.header !== 'none' ? 'jwt' : 'none', connected: false, redirectUri: oauthRedirectUri(env) };
 }
@@ -360,9 +365,10 @@ export const BELT_TEST_SOURCE = 'ima-belt-test';
 export const TEMPLATE_NAME = 'IMA Kyu Belt Test - Application & Waiver';
 const SIGNER_ROLE = 'Student';
 
-function dsBase(env) {
-  const accountId = env.DOCUSIGN_ACCOUNT_ID;
-  const baseUri = env.DOCUSIGN_BASE_URI;
+async function dsBase(env) {
+  const rec = await getOAuthRecord(env);
+  const accountId = rec?.accountId || env.DOCUSIGN_ACCOUNT_ID;
+  const baseUri = rec?.baseUri || env.DOCUSIGN_BASE_URI;
   if (!accountId || !baseUri) throw new Error('DocuSign env missing DOCUSIGN_ACCOUNT_ID / DOCUSIGN_BASE_URI');
   return `${baseUri.replace(/\/$/, '')}/restapi/v2.1/accounts/${accountId}`;
 }
@@ -370,7 +376,7 @@ function dsBase(env) {
 // Authenticated DocuSign REST call. Retries once with a fresh token on 401.
 async function dsFetch(env, path, init = {}, retried = false) {
   const token = await getAccessToken(env);
-  const res = await fetch(dsBase(env) + path, {
+  const res = await fetch((await dsBase(env)) + path, {
     ...init,
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers || {}) },
   });
@@ -444,7 +450,7 @@ function anchoredTabs(values, { locked }) {
  * when a template ID is configured — admin Belt Test tab or
  * DOCUSIGN_TEMPLATE_ID — otherwise the embedded waiver PDF as a fallback.
  */
-export async function sendBeltTestEnvelope(env, payload) {
+export function buildEnvelopeDefinition(env, payload) {
   const templateId = payload.templateId || env.DOCUSIGN_TEMPLATE_ID || '';
   const values = payload.tabs || {};
   const subjectName = payload.signerName ? ` - ${payload.signerName}` : '';
@@ -477,6 +483,12 @@ export async function sendBeltTestEnvelope(env, payload) {
     };
   }
 
+  return envelopeDef;
+}
+
+export async function sendBeltTestEnvelope(env, payload) {
+  const templateId = payload.templateId || env.DOCUSIGN_TEMPLATE_ID || '';
+  const envelopeDef = buildEnvelopeDefinition(env, payload);
   const data = await dsFetch(env, '/envelopes', { method: 'POST', body: JSON.stringify(envelopeDef) });
   const folder = await fileEnvelopeInFolder(env, data.envelopeId).catch((e) => ({ ok: false, error: e.message }));
   return { envelopeId: data.envelopeId, status: data.status, usedTemplate: !!templateId, folder };
@@ -568,4 +580,40 @@ export async function verifyConnectSignature(env, rawBody, signatureHeader) {
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
   const b64 = btoa(String.fromCharCode(...new Uint8Array(sig)));
   return b64 === signatureHeader;
+}
+
+/**
+ * Sandbox only: make the error-free eSignature API calls DocuSign's Go-Live
+ * review looks for, while exercising the real waiver against DocuSign.
+ * Creates DRAFT envelopes (status "created" — nothing is emailed), one per
+ * call, alternating the template path and the embedded-PDF path, then moves
+ * them to the recycle bin. No envelope is read twice (polling rules).
+ */
+export async function runGoLiveCalls(env, count = 20) {
+  const rec = await getOAuthRecord(env);
+  if (!rec?.sandbox) throw new Error('Connect the DocuSign sandbox first (Go-Live test calls only run there).');
+  const results = { template: null, created: [], errors: [] };
+  let tpl = await findBeltTestTemplate(env).catch((e) => { results.errors.push(e.message); return null; });
+  if (!tpl) tpl = await createBeltTestTemplate(env).catch((e) => { results.errors.push(e.message); return null; });
+  results.template = tpl;
+  const sample = {
+    signerName: 'Go-Live Test Student', signerEmail: rec.email || 'test@example.com',
+    testDate: '2026-11-21', testDateDisplay: 'November 21, 2026', metadata: { memberId: 'golive-test' },
+    tabs: { first_name: 'Test', last_name: 'Student', tier_label: 'White to Yellow', present_belt: 'White', total_amount: '135.00', test_date: 'November 21, 2026' },
+  };
+  for (let i = 0; i < count; i++) {
+    const useTemplate = tpl && i % 2 === 0;
+    try {
+      const body = buildEnvelopeDefinition(env, { ...sample, templateId: useTemplate ? tpl.templateId : '' });
+      body.status = 'created';
+      delete body.eventNotification;
+      const r = await dsFetch(env, '/envelopes', { method: 'POST', body: JSON.stringify(body) });
+      results.created.push(r.envelopeId);
+    } catch (e) { results.errors.push(e.message); }
+  }
+  if (results.created.length) {
+    await dsFetch(env, '/folders/recyclebin', { method: 'PUT', body: JSON.stringify({ envelopeIds: results.created }) })
+      .catch((e) => results.errors.push('cleanup: ' + e.message));
+  }
+  return { ok: results.errors.length === 0, calls: results.created.length + (tpl ? 2 : 1) + 1, ...results };
 }
