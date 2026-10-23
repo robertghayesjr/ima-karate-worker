@@ -5,7 +5,7 @@ import { handleAdminRoutes } from '../src/adminRoutes.js';
 import worker from '../src/worker.js';
 let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
 const kv = new Map();
-const env = { IMA_KARATE: { get: async (k) => kv.get(k) ?? null, put: async (k, v) => { kv.set(k, v); }, delete: async (k) => { kv.delete(k); }, list: async () => ({ keys: [] }) }, ADMIN_PASSWORD: 'pw', DEMO_MODE: '1' };
+const env = { IMA_KARATE: { get: async (k) => kv.get(k) ?? null, put: async (k, v) => { kv.set(k, v); }, delete: async (k) => { kv.delete(k); }, list: async () => ({ keys: [] }) }, ADMIN_PASSWORD: 'pw' };
 
 // validation
 ok(validateDesign({ css: '', edits: [], pages: [] }).ok, 'empty design valid');

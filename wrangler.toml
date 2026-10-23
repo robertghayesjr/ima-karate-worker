@@ -17,7 +17,6 @@ IMG_BASE = "https://cdn.jsdelivr.net/gh/robh-autods/ima-karate-assets@main/"
 # Demo mode — when "1", belt-testing skips real Memberstack signup and Stripe
 # checkout and uses /belt-testing/mock-stripe instead. "0" = real payments
 # (Stripe Checkout with line items, verified with Stripe after payment).
-DEMO_MODE = "0"
 
 # DocuSign non-secret identifiers (secrets: INTEGRATION_KEY, RSA_PRIVATE_KEY)
 DOCUSIGN_ACCOUNT_ID = "6b65537a-a0f5-4bd6-802d-1daa34fe38d8"

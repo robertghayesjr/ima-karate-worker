@@ -91,8 +91,8 @@ export function buildBeltTestingPage(cfg) {
       <p class="eyebrow">Next Kyu belt test</p>
       <h1>${esc(cfg.testDateDisplay)}</h1>
       <p class="lead">
-        ${esc(cfg.location)} · Arrive 15 minutes before your testing time. Applications close
-        after ${esc(formatShort(cfg.applicationCutoff))} — a $${(cfg.lateFeeCents / 100).toFixed(0)} late fee applies past this Thursday cutoff.
+        ${esc(cfg.location)} · Arrive 15 minutes before your testing time. A $${(cfg.lateFeeCents / 100).toFixed(0)} late fee
+        applies to applications after ${esc(formatShort(cfg.lateFeeCutoff))}. No applications are accepted on test day.
       </p>
       <a href="#register" class="btn-primary btn-lg">Register for this test</a>
     </div>
@@ -215,11 +215,11 @@ export function buildBeltTestingPage(cfg) {
           <div class="pay-summary" id="bt-summary">
             <div><span>Base fee</span><b id="bt-base">—</b></div>
             <div><span>Progress Manual</span><b id="bt-manual">—</b></div>
-            <div class="late" id="bt-late-row"><span>Late fee (past Thursday cutoff)</span><b id="bt-late">—</b></div>
+            <div class="late" id="bt-late-row"><span>Late fee (after ${esc(formatShort(cfg.lateFeeCutoff))})</span><b id="bt-late">—</b></div>
             <div><span>Card processing fee (${esc(String(cfg.ccSurchargePct))}%)</span><b id="bt-fee">—</b></div>
             <div class="total"><span>Total</span><b id="bt-total">—</b></div>
           </div>
-          <p class="fine">A ${esc(String(cfg.ccSurchargePct))}% card processing fee is added as its own line to cover card processing costs. No application is accepted on the testing day.</p>
+          <p class="fine">A ${esc(String(cfg.ccSurchargePct))}% card processing fee is added as its own line to cover card processing costs.</p>
         </fieldset>
 
         <div class="cta-row">

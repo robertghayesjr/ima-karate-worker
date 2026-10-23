@@ -116,14 +116,12 @@ export async function getMember(env, memberId) {
 
 /** Convenience: merge current belt-test progress into a member's profile. */
 export async function recordBeltTestProgress(env, memberId, progress) {
-  // progress = { paid?, signed?, tier?, testDate?, envelopeId? }
+  // progress = { paid?, tier?, testDate?, applicationJson? }
   const customFields = {};
   const metaData = {};
   if ('paid' in progress) customFields['belt-test-paid'] = !!progress.paid;
-  if ('signed' in progress) customFields['belt-test-signed'] = !!progress.signed;
   if (progress.tier) customFields['belt-test-tier'] = progress.tier;
   if (progress.testDate) customFields['belt-test-date'] = progress.testDate;
-  if (progress.envelopeId) metaData.docusignEnvelopeId = progress.envelopeId;
   if (progress.applicationJson) metaData.beltTestApplication = progress.applicationJson;
   return updateMember(env, memberId, { customFields, metaData });
 }

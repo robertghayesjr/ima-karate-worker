@@ -19,24 +19,10 @@ import {
 } from './memberstack.js';
 import { buildBeltTestingPage } from './beltTestingPage.js';
 import { buildBeltTestThankYou } from './beltThankYou.js';
-import { buildMockStripePage } from './beltMockPages.js';
 import { createBeltCheckoutSession, getCheckoutSession } from './stripe.js';
 
-function isDemoMode(env) {
-  return env.DEMO_MODE === '1' || env.DEMO_MODE === 'true';
-}
-
-/**
- * Guard for any write against a Memberstack member. In demo mode we must never
- * mutate a real member — only synthetic mem_demo_* records are writable.
- * In production (demo off), all members are writable.
- */
 function canWriteMember(env, memberId) {
-  if (!memberId) return false;
-  // Demo mode performs NO Memberstack writes at all — demo activity is fully
-  // isolated from real members. (Fail-closed: an unset env is not demo.)
-  if (isDemoMode(env)) return false;
-  return true;
+  return !!memberId;
 }
 
 function json(obj, status = 200, extra = {}) {
@@ -97,13 +83,6 @@ export async function handleBeltTestingRoutes(request, env, url) {
     return handlePostPayment(request, env, url);
   }
 
-  // Mock Stripe page — demo mode ONLY. In production this route does not
-  // exist (404) so the mock flow can never stand in for real payment.
-  if (p === '/belt-testing/mock-stripe') {
-    if (!isDemoMode(env)) return new Response('Not found', { status: 404 });
-    return handleMockStripe(request, env, url);
-  }
-
   // ── JSON API ─────────────────────────────────────────────────────────────
   // Admin route accepts both GET (read config) and POST (update). Handled
   // before the POST-only guard below.
@@ -126,10 +105,6 @@ async function apiLookup(request, env) {
   let body;
   try { body = await request.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
   const { email, firstName, lastName } = body || {};
-
-  // Demo mode — always report "no match" so the wizard prompts a create-account
-  // step, which we also demo-shortcut.
-  if (isDemoMode(env)) return json({ match: null, candidates: [], demo: true });
 
   try {
     // 1. Exact email match first.
@@ -165,13 +140,6 @@ async function apiSignup(request, env) {
   try { body = await request.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
   const { email, password, firstName, lastName, phone } = body || {};
   if (!email || !password) return json({ error: 'Email and password required' }, 400);
-
-  // Demo mode — skip Memberstack entirely, mint a synthetic memberId so the
-  // rest of the flow can be walked end-to-end without real signup.
-  if (isDemoMode(env)) {
-    const demoId = 'mem_demo_' + Math.random().toString(36).slice(2, 10);
-    return json({ memberId: demoId, demo: true });
-  }
 
   try {
     const res = await fetch('https://admin.memberstack.com/members', {
@@ -215,8 +183,7 @@ async function apiCheckout(request, env) {
   const tier = findTier(application.tier);
   if (!tier) return json({ error: 'Unknown tier' }, 400);
 
-  const demo = isDemoMode(env);
-  if (!demo && !env.STRIPE_SECRET_KEY) {
+  if (!env.STRIPE_SECRET_KEY) {
     return json({ error: 'Online payment is not set up yet. Please contact the dojo at (303) 665-0339 to complete your registration.', code: 'stripe_not_configured' }, 503);
   }
 
@@ -249,7 +216,6 @@ async function apiCheckout(request, env) {
   await env.IMA_KARATE.put(stashKey, JSON.stringify(stash), { expirationTtl: 60 * 60 * 24 * 7 });
 
   // Also stamp the member with what they applied for so support can see it.
-  // Guarded: demo mode never writes to real Memberstack members.
   if (canWriteMember(env, memberId)) {
     try {
       await recordBeltTestProgress(env, memberId, {
@@ -260,14 +226,6 @@ async function apiCheckout(request, env) {
     } catch (e) {
       console.warn('recordBeltTestProgress failed (non-fatal):', e.message);
     }
-  }
-
-  // Demo mode: send the client to our mock Stripe page instead of Memberstack.
-  if (demo) {
-    const mockUrl = new URL('/belt-testing/mock-stripe', request.url);
-    mockUrl.searchParams.set('memberId', memberId);
-    mockUrl.searchParams.set('token', checkoutToken);
-    return json({ checkoutUrl: mockUrl.toString(), demo: true });
   }
 
   // Real Stripe Checkout: every charge is its own line item.
@@ -304,8 +262,6 @@ async function handlePostPayment(request, env, url) {
   const stashRaw = applicationKey(memberId, token) ? await env.IMA_KARATE.get(applicationKey(memberId, token)) : null;
   const stash = stashRaw ? JSON.parse(stashRaw) : null;
 
-  const demo = isDemoMode(env) || memberId.startsWith('mem_demo_');
-
   // HARDENING: only mark the member paid when the one-time checkout token
   // from our own checkout URL is presented — an arbitrary GET (or a stale
   // bookmark) can no longer flip the paid flag.
@@ -313,8 +269,8 @@ async function handlePostPayment(request, env, url) {
 
   // Real payments: ask Stripe. Paid only if the session is ours, for this
   // member, fully paid, and for exactly the server-computed total.
-  let stripeOk = demo;
-  if (!demo && tokenOk) {
+  let stripeOk = false;
+  if (tokenOk) {
     const sessionId = url.searchParams.get('session_id') || '';
     try {
       const s = sessionId === stash.stripeSessionId ? await getCheckoutSession(env, sessionId) : null;
@@ -348,7 +304,7 @@ async function handlePostPayment(request, env, url) {
     console.warn(`post-payment: paid flag NOT set for ${memberId} — checkout token missing/mismatched`);
   }
 
-  // No waiver step: payment confirmed → confirmation page.
+  // Payment confirmed: go to the confirmation page.
   const done = new URL('/belt-testing/thank-you', request.url);
   return Response.redirect(done.toString(), 303);
 }
@@ -382,23 +338,8 @@ async function apiWebhookPaid(request, env) {
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   const body = await request.json().catch(() => null);
   if (!body?.memberId) return json({ error: 'memberId required' }, 400);
-  // Guarded: demo mode never writes to real Memberstack members.
-  if (!canWriteMember(env, body.memberId)) return json({ ok: true, skipped: 'demo-mode' });
   await recordBeltTestProgress(env, body.memberId, { paid: true });
   return json({ ok: true });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Mock Stripe checkout page (DEMO_MODE only).
-// ─────────────────────────────────────────────────────────────────────────────
-async function handleMockStripe(request, env, url) {
-  const memberId = url.searchParams.get('memberId');
-  if (!memberId) return new Response('Missing memberId', { status: 400 });
-  const cfg = await getBeltConfig(env);
-  const key = applicationKey(memberId, url.searchParams.get('token') || '');
-  const stashRaw = key ? await env.IMA_KARATE.get(key) : null;
-  const stash = stashRaw ? JSON.parse(stashRaw) : null;
-  return html(buildMockStripePage(stash, memberId, cfg, url.searchParams.get('token')));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

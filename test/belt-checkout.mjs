@@ -2,7 +2,7 @@ import { handleBeltTestingRoutes } from '../src/beltRoutes.js';
 import { computeBeltAmounts, updateBeltConfig } from '../src/beltConfig.js';
 let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
 const kv = new Map();
-const env = { IMA_KARATE: { get: async (k) => kv.get(k) ?? null, put: async (k, v) => { kv.set(k, v); }, delete: async (k) => { kv.delete(k); } }, DEMO_MODE: '0', STRIPE_SECRET_KEY: 'sk_test_x' };
+const env = { IMA_KARATE: { get: async (k) => kv.get(k) ?? null, put: async (k, v) => { kv.set(k, v); }, delete: async (k) => { kv.delete(k); } }, STRIPE_SECRET_KEY: 'sk_test_x' };
 const sessions = new Map(); const created = [];
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(url);
