@@ -271,7 +271,9 @@ export async function handleAdminRoutes(request, env, url) {
     const cfg = await getBeltConfig(env);
     const sample = { firstName: 'Test', lastName: 'Student', age: '10', presentBelt: 'White', tierLabel: 'Sample tier', email: 'test@example.com', phone: '(303) 555-0100', dojo: 'Louisville', testDateDisplay: cfg.testDateDisplay, baseCents: 13500, processingFeeCents: 405, processingFeePct: cfg.ccSurchargePct, totalCents: 13905 };
     const msg = buildPurchaseEmail({ stash: sample, session: { id: 'test', amount_total: 13905 }, cfg });
-    const r = await sendEmail(env, { to: notifyRecipients(cfg), ...msg, subject: 'TEST: ' + msg.subject, replyTo: undefined });
+    const body = await request.json().catch(() => ({}));
+    const only = parseEmailList(body && body.to).emails;
+    const r = await sendEmail(env, { to: only.length ? only : notifyRecipients(cfg), ...msg, subject: 'TEST: ' + msg.subject, replyTo: undefined });
     return json(r, r.ok ? 200 : 502);
   }
   if (p === '/admin/api/notify/sweep' && request.method === 'POST') {
