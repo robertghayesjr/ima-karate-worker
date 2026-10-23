@@ -14,9 +14,8 @@ directory = "./assets"
 ORIGIN = "https://ima-670b18.webflow.io"
 IMG_BASE = "https://cdn.jsdelivr.net/gh/robh-autods/ima-karate-assets@main/"
 
-# Demo mode — when "1", belt-testing skips real Memberstack signup and Stripe
-# checkout and uses /belt-testing/mock-stripe instead. "0" = real payments
-# (Stripe Checkout with line items, verified with Stripe after payment).
+# Purchase emails go out through Resend (secret RESEND_API_KEY).
+NOTIFY_FROM = "IMA Karate <notifications@imakarate.com>"
 
 # DocuSign non-secret identifiers (secrets: INTEGRATION_KEY, RSA_PRIVATE_KEY)
 DOCUSIGN_ACCOUNT_ID = "6b65537a-a0f5-4bd6-802d-1daa34fe38d8"
@@ -77,4 +76,4 @@ id = "b88e14c597dc445c8aa8061dba031e90"
 # id = "REPLACE_WITH_KV_NAMESPACE_ID"
 
 [triggers]
-crons = []
+crons = ["*/10 * * * *"]

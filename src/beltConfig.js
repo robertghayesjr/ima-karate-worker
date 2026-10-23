@@ -21,6 +21,7 @@
  * @property {number} manualAddonCents      e.g. 3000
  * @property {number} ccSurchargePct        e.g. 3
  * @property {boolean} registrationOpen     false = sign-up paused (form hidden, APIs refuse)
+ * @property {string[]} notifyEmails        who gets an email for each belt-test payment
  */
 
 /** Sensible defaults. Written to KV on first read if the key doesn't exist. */
@@ -37,6 +38,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   manualAddonCents: 3000,
   ccSurchargePct: 3,
   registrationOpen: true,
+  notifyEmails: ['madani9996@gmail.com', 'info@imakarate.com', 'robert@creao.co'],
 });
 
 const KV_KEY = 'current';

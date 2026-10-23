@@ -20,6 +20,7 @@ import {
 import { buildBeltTestingPage } from './beltTestingPage.js';
 import { buildBeltTestThankYou } from './beltThankYou.js';
 import { createBeltCheckoutSession, getCheckoutSession } from './stripe.js';
+import { notifyPurchase } from './notify.js';
 
 function canWriteMember(env, memberId) {
   return !!memberId;
@@ -241,6 +242,8 @@ async function apiCheckout(request, env) {
     });
     stash.stripeSessionId = session.id;
     await env.IMA_KARATE.put(stashKey, JSON.stringify(stash), { expirationTtl: 60 * 60 * 24 * 7 });
+    // Lets the scheduled sweep find this application from the Stripe session.
+    await env.IMA_KARATE.put(`session-app:${session.id}`, stashKey, { expirationTtl: 60 * 60 * 24 * 7 });
     return json({ checkoutUrl: session.url });
   } catch (e) {
     console.error('Stripe checkout failed:', e.message);
@@ -280,6 +283,7 @@ async function handlePostPayment(request, env, url) {
           sessionId, paymentIntent: s.payment_intent, amountTotal: s.amount_total, email: s.customer_details?.email || stash.email,
           tier: stash.tierId, student: [stash.firstName, stash.lastName].filter(Boolean).join(' '), paidAt: new Date().toISOString(),
         }));
+        try { await notifyPurchase(env, { session: s, stash, cfg }); } catch (e) { console.warn('purchase email error:', e.message); }
       } else {
         console.warn(`post-payment: Stripe did not confirm payment for ${memberId} (${sessionId})`);
       }

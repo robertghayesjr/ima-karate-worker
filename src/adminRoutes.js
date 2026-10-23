@@ -22,6 +22,7 @@ import {
 import { getBeltConfig, updateBeltConfig, computeBeltAmounts, findTier } from './beltConfig.js';
 import { createBeltCheckoutSession, getCheckoutLineItems, expireCheckoutSession } from './stripe.js';
 import { buildAdminApp } from './adminApp.js';
+import { parseEmailList, notifyRecipients, sendEmail, buildPurchaseEmail, sweepPaidSessions } from './notify.js';
 import { applySiteSettings, SOCIAL_ICONS } from './siteSettings.js';
 import { buildHomePage } from './sitePagesMain.js';
 import { buildNewsEventsPage } from './sitePagesWorld.js';
@@ -261,6 +262,22 @@ export async function handleAdminRoutes(request, env, url) {
     } catch (e) { return json({ ok: false, error: e.message }, 502); }
   }
 
+  // ── Purchase emails ──
+  if (p === '/admin/api/notify/status' && request.method === 'GET') {
+    const cfg = await getBeltConfig(env);
+    return json({ configured: !!env.RESEND_API_KEY, from: env.NOTIFY_FROM || 'IMA Karate <notifications@imakarate.com>', recipients: notifyRecipients(cfg) });
+  }
+  if (p === '/admin/api/notify/test' && request.method === 'POST') {
+    const cfg = await getBeltConfig(env);
+    const sample = { firstName: 'Test', lastName: 'Student', age: '10', presentBelt: 'White', tierLabel: 'Sample tier', email: 'test@example.com', phone: '(303) 555-0100', dojo: 'Louisville', testDateDisplay: cfg.testDateDisplay, baseCents: 13500, processingFeeCents: 405, processingFeePct: cfg.ccSurchargePct, totalCents: 13905 };
+    const msg = buildPurchaseEmail({ stash: sample, session: { id: 'test', amount_total: 13905 }, cfg });
+    const r = await sendEmail(env, { to: notifyRecipients(cfg), ...msg, subject: 'TEST: ' + msg.subject, replyTo: undefined });
+    return json(r, r.ok ? 200 : 502);
+  }
+  if (p === '/admin/api/notify/sweep' && request.method === 'POST') {
+    try { return json({ ok: true, ...(await sweepPaidSessions(env)) }); } catch (e) { return json({ ok: false, error: e.message }, 502); }
+  }
+
   // Belt config (test dates, fees, location) — replaces the old token-based admin API for humans
   if (p === '/admin/api/belt-config' && request.method === 'GET') {
     return json(await getBeltConfig(env));
@@ -269,6 +286,11 @@ export async function handleAdminRoutes(request, env, url) {
     const patch = await request.json().catch(() => null);
     if (!patch || typeof patch !== 'object') return json({ error: 'Invalid JSON' }, 400);
     if ('registrationOpen' in patch && typeof patch.registrationOpen !== 'boolean') return json({ error: 'registrationOpen must be true or false' }, 400);
+    if ('notifyEmails' in patch) {
+      const { emails, bad } = parseEmailList(patch.notifyEmails);
+      if (bad.length) return json({ error: 'Not a valid email: ' + bad.join(', ') }, 400);
+      patch.notifyEmails = emails;
+    }
     const updated = await updateBeltConfig(env, patch);
     return json({ ok: true, config: updated });
   }

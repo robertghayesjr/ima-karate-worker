@@ -457,6 +457,7 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
       '<div class="field"><label>Student manual add-on ($)</label><input id="cf-manual" type="number" step="1" value="' + esc(dollars(c.manualAddonCents)) + '" /></div>' +
       '<div class="field"><label>Credit-card surcharge (%)</label><input id="cf-cc" type="number" step="0.1" value="' + esc(f(c.ccSurchargePct)) + '" /></div>' +
       '<div class="field full"><label>Testing location</label><input id="cf-location" value="' + esc(f(c.location)) + '" /></div>' +
+      '<div class="field full"><label>Payment alert emails</label><input id="cf-notify" value="' + esc((c.notifyEmails || []).join(', ')) + '" /><div class="help">Everyone listed gets an email for each belt test payment. Separate with commas.</div></div>' +
       '</div>' +
       '<div class="save-note" id="cf-note"></div>' +
       '<div class="doc-actions" style="margin-top:16px"><button class="btn btn-gold" id="cf-save">Save Settings</button></div>' +
@@ -473,6 +474,7 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
         ccSurchargePct: Number(document.getElementById('cf-cc').value) || 0,
         location: document.getElementById('cf-location').value.trim(),
         registrationOpen: document.getElementById('cf-open').checked,
+        notifyEmails: document.getElementById('cf-notify').value,
       };
       api('/admin/api/belt-config', {method:'PUT', body: JSON.stringify(patch)})
         .then(function(j){ beltConfig = j.config; document.getElementById('cf-note').textContent = '✓ Saved — live immediately.'; })

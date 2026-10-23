@@ -59,6 +59,13 @@ export async function createBeltCheckoutSession(env, { amounts, tierLabel, feePc
   return stripeFetch(env, '/checkout/sessions', { method: 'POST', body: params, idempotencyKey });
 }
 
+/** GET a Stripe list endpoint with query params. */
+export async function stripeList(env, path, query = {}) {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== null) qs.append(k, String(v));
+  return stripeFetch(env, `${path}?${qs}`);
+}
+
 export async function getCheckoutSession(env, id) {
   if (!/^cs_(live|test)_[A-Za-z0-9]+$/.test(id || '')) throw new Error('Invalid checkout session id');
   return stripeFetch(env, `/checkout/sessions/${id}`);

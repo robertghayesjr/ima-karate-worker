@@ -30,6 +30,7 @@ import { getPublishedDoc } from './contentDocs.js';
 import { applyDesign, findCustomPage } from './siteDesign.js';
 import { renderCustomPage } from './pageRender.js';
 import { handleLegacy } from './legacyRoutes.js';
+import { sweepPaidSessions } from './notify.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -38,6 +39,12 @@ const CORS_HEADERS = {
 };
 
 export default {
+  // Every 10 minutes: record + email any paid belt-test sessions we missed
+  // (for example, a family closed the tab before returning to the site).
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(sweepPaidSessions(env).then((r) => console.log('sweep', JSON.stringify(r))).catch((e) => console.error('sweep failed', e.message)));
+  },
+
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
 
