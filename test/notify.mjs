@@ -34,5 +34,14 @@ ok(r.emailed === 0 && sent.length === 1, 'no duplicate on second sweep');
 r = await notifyPurchase(env, { session: { id: 'cs_live_A' }, stash: null });
 ok(r.skipped && sent.length === 1, 'post-payment path also deduped');
 const r2 = await notifyPurchase({ IMA_KARATE: KV }, { session: { id: 'cs_live_Z' }, stash: {} , cfg: {} });
-ok(!r2.ok && /RESEND_API_KEY/.test(r2.error) && !kv.get('notify-sent:cs_live_Z'), 'no key: not marked sent (retries later)');
+ok(!r2.ok && /No email sender/.test(r2.error) && !kv.get('notify-sent:cs_live_Z'), 'no key: not marked sent (retries later)');
 console.log('\n' + fails + ' failures');
+{
+  const calls = []; const env2 = { IMA_KARATE: KV, NOTIFY_FROM: 'IMA Karate <notifications@imakarate.com>', EMAIL: { send: async (m) => { calls.push(m); return { messageId: 'cf_1' }; } } };
+  const { sendEmail } = await import('../src/notify.js');
+  const r = await sendEmail(env2, { to: ['a@b.com'], subject: 's', text: 't', html: 'h', replyTo: 'p@x.com' });
+  console.log((r.ok && r.via === 'cloudflare' && calls[0].from.email === 'notifications@imakarate.com' && calls[0].from.name === 'IMA Karate' && calls[0].replyTo === 'p@x.com' ? 'PASS' : 'FAIL') + ' cloudflare binding used');
+  const env3 = { EMAIL: { send: async () => { const e = new Error('nope'); e.code = 'E_SENDER_NOT_VERIFIED'; throw e; } } };
+  const r3 = await sendEmail(env3, { to: ['a@b.com'], subject: 's', text: 't' });
+  console.log((!r3.ok && /E_SENDER_NOT_VERIFIED/.test(r3.error) ? 'PASS' : 'FAIL') + ' cloudflare error reported');
+}

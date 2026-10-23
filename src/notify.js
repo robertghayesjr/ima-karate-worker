@@ -2,7 +2,8 @@
 //  Purchase notification emails (Resend).
 //  Sent once per paid Stripe Checkout session, either from /post-payment or
 //  from the scheduled sweep (covers families who close the tab after paying).
-//  Needs the RESEND_API_KEY secret; NOTIFY_FROM sets the sender address.
+//  Sends through Cloudflare Email Sending (EMAIL binding, imakarate.com).
+//  NOTIFY_FROM sets the sender address.
 // ─────────────────────────────────────────────────────────────────────────────
 import { getBeltConfig, findTier } from './beltConfig.js';
 import { stripeList, getCheckoutLineItems } from './stripe.js';
@@ -80,9 +81,30 @@ export function buildPurchaseEmail({ stash, session, lineItems, cfg }) {
   return { subject, text, html, replyTo: s.email || session?.customer_details?.email || undefined };
 }
 
+export function emailConfigured(env) {
+  return !!(env.EMAIL || env.RESEND_API_KEY);
+}
+
+function parseFrom(from) {
+  const m = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(from || '');
+  return m ? { name: m[1].replace(/^"|"$/g, ''), email: m[2] } : { email: String(from || '').trim() };
+}
+
+/** Send through Cloudflare Email Sending (EMAIL binding); Resend as a fallback. */
 export async function sendEmail(env, { to, subject, text, html, replyTo }) {
-  if (!env.RESEND_API_KEY) return { ok: false, error: 'RESEND_API_KEY is not set' };
-  const body = { from: env.NOTIFY_FROM || 'IMA Karate <notifications@imakarate.com>', to, subject, text, html };
+  const from = env.NOTIFY_FROM || 'IMA Karate <notifications@imakarate.com>';
+  if (env.EMAIL && typeof env.EMAIL.send === 'function') {
+    try {
+      const msg = { to, from: parseFrom(from), subject, text, html };
+      if (replyTo) msg.replyTo = replyTo;
+      const r = await env.EMAIL.send(msg);
+      return { ok: true, id: r?.messageId, via: 'cloudflare' };
+    } catch (e) {
+      return { ok: false, error: (e.code ? e.code + ': ' : '') + e.message, via: 'cloudflare' };
+    }
+  }
+  if (!env.RESEND_API_KEY) return { ok: false, error: 'No email sender configured' };
+  const body = { from, to, subject, text, html };
   if (replyTo) body.reply_to = replyTo;
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -90,7 +112,7 @@ export async function sendEmail(env, { to, subject, text, html, replyTo }) {
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  return res.ok ? { ok: true, id: data.id } : { ok: false, status: res.status, error: data.message || data.name || 'send failed' };
+  return res.ok ? { ok: true, id: data.id, via: 'resend' } : { ok: false, status: res.status, error: data.message || data.name || 'send failed' };
 }
 
 /**

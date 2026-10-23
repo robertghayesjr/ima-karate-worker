@@ -22,7 +22,7 @@ import {
 import { getBeltConfig, updateBeltConfig, computeBeltAmounts, findTier } from './beltConfig.js';
 import { createBeltCheckoutSession, getCheckoutLineItems, expireCheckoutSession } from './stripe.js';
 import { buildAdminApp } from './adminApp.js';
-import { parseEmailList, notifyRecipients, sendEmail, buildPurchaseEmail, sweepPaidSessions } from './notify.js';
+import { parseEmailList, notifyRecipients, sendEmail, emailConfigured, buildPurchaseEmail, sweepPaidSessions } from './notify.js';
 import { applySiteSettings, SOCIAL_ICONS } from './siteSettings.js';
 import { buildHomePage } from './sitePagesMain.js';
 import { buildNewsEventsPage } from './sitePagesWorld.js';
@@ -265,7 +265,7 @@ export async function handleAdminRoutes(request, env, url) {
   // ── Purchase emails ──
   if (p === '/admin/api/notify/status' && request.method === 'GET') {
     const cfg = await getBeltConfig(env);
-    return json({ configured: !!env.RESEND_API_KEY, from: env.NOTIFY_FROM || 'IMA Karate <notifications@imakarate.com>', recipients: notifyRecipients(cfg) });
+    return json({ configured: emailConfigured(env), via: env.EMAIL ? 'cloudflare' : (env.RESEND_API_KEY ? 'resend' : null), from: env.NOTIFY_FROM || 'IMA Karate <notifications@imakarate.com>', recipients: notifyRecipients(cfg) });
   }
   if (p === '/admin/api/notify/test' && request.method === 'POST') {
     const cfg = await getBeltConfig(env);

@@ -14,7 +14,7 @@ directory = "./assets"
 ORIGIN = "https://ima-670b18.webflow.io"
 IMG_BASE = "https://cdn.jsdelivr.net/gh/robh-autods/ima-karate-assets@main/"
 
-# Purchase emails go out through Resend (secret RESEND_API_KEY).
+# Purchase emails go out through Cloudflare Email Sending (imakarate.com).
 NOTIFY_FROM = "IMA Karate <notifications@imakarate.com>"
 
 # DocuSign non-secret identifiers (secrets: INTEGRATION_KEY, RSA_PRIVATE_KEY)
@@ -77,3 +77,7 @@ id = "b88e14c597dc445c8aa8061dba031e90"
 
 [triggers]
 crons = ["*/10 * * * *"]
+
+# Cloudflare Email Sending (domain imakarate.com onboarded in the dashboard)
+[[send_email]]
+name = "EMAIL"
