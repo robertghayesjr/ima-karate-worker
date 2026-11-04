@@ -31,6 +31,7 @@ import { applyDesign, findCustomPage } from './siteDesign.js';
 import { renderCustomPage } from './pageRender.js';
 import { handleLegacy } from './legacyRoutes.js';
 import { sweepPaidSessions } from './notify.js';
+import { handleTeamSite, TEAM_HOSTS, teamAsset } from './teamSite.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -54,6 +55,15 @@ export default {
     if (url.pathname === '/__worker/health') {
       return json({ ok: true, worker: 'ima-karate-worker', v: 2, origin: env.ORIGIN });
     }
+
+    // ── team.imakarate.com → IMA Competition Team site ──────────────────────
+    if (TEAM_HOSTS.includes(url.hostname) || (url.hostname.endsWith('.workers.dev') && url.searchParams.get('__team') === '1')) {
+      try { return await handleTeamSite(request, env, url); }
+      catch (e) { console.error('team site error', e); return new Response('Team site error', { status: 500 }); }
+    }
+
+    // Team site images (stored in KV) are also reachable on the main domain.
+    if (url.pathname.startsWith('/team/')) return teamAsset(env, url.pathname.slice(6));
 
     // ── www → apex (imakarate.com is the main address) ───────────────────────
     if (url.hostname === 'www.imakarate.com') {
